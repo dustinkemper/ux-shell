@@ -5,7 +5,7 @@ export default function ToolbarGroup() {
   return (
     <div 
       data-toolbar-group
-      className="flex items-center gap-0 border-l border-b border-border bg-[#fafafc]"
+      className="flex shrink-0 items-center gap-0 border-l border-b border-border bg-[#fafafc]"
     >
       <Button variant="ghost" size="icon" className="h-11 w-11">
         <Search className="h-4 w-4" />

@@ -60,6 +60,7 @@ export default function TabsRegion() {
   const [visibleTabs, setVisibleTabs] = useState(tabs)
   const [overflowTabs, setOverflowTabs] = useState<typeof tabs>([])
   const containerRef = useRef<HTMLDivElement>(null)
+  const tabsContainerRef = useRef<HTMLDivElement>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -73,50 +74,60 @@ export default function TabsRegion() {
   )
 
   useEffect(() => {
+    // First, show all tabs to measure them
+    setVisibleTabs(tabs)
+    setOverflowTabs([])
+    
     const updateVisibleTabs = () => {
-      if (!containerRef.current) return
+      if (!containerRef.current || !tabsContainerRef.current) return
 
       const containerWidth = containerRef.current.offsetWidth
       const toolbarGroup = containerRef.current.parentElement?.querySelector('[data-toolbar-group]') as HTMLElement
       const toolbarWidth = toolbarGroup?.offsetWidth || 132
       const plusButtonWidth = 44
-      const overflowMenuWidth = 32 // Width of overflow menu button
+      const overflowMenuWidth = 32
       const availableWidth = containerWidth - toolbarWidth - plusButtonWidth
+      
+      // Measure tab widths from rendered tabs (they should be at natural width since no flex-1)
+      const tabElements = tabsContainerRef.current.querySelectorAll('[data-tab-item]')
+      
+      if (tabElements.length === 0 || tabElements.length !== tabs.length) {
+        // Tabs not fully rendered yet
+        return
+      }
+      
+      // Get natural widths from rendered tabs
+      const tabWidths: number[] = []
+      Array.from(tabElements).forEach((el) => {
+        const element = el as HTMLElement
+        tabWidths.push(element.offsetWidth || 80)
+      })
       
       const visible: typeof tabs = []
       const overflow: typeof tabs = []
-      
-      // Measure actual tab widths from DOM if available
-      const tabElements = containerRef.current.querySelectorAll('[data-tab-item]')
       let totalWidth = 0
       
-      for (let index = 0; index < tabs.length; index++) {
+      // Home tab is always visible
+      if (tabs.length > 0) {
+        visible.push(tabs[0])
+        totalWidth += tabWidths[0] || 100
+      }
+      
+      // Try to fit as many tabs as possible
+      for (let index = 1; index < tabs.length; index++) {
         const tab = tabs[index]
+        const tabWidth = tabWidths[index] || 80
         
-        // Home tab is always visible
-        if (index === 0) {
-          visible.push(tab)
-          const homeTabElement = tabElements[index] as HTMLElement
-          totalWidth += homeTabElement?.offsetWidth || 100
-          continue
-        }
-
-        // Try to get actual width from DOM, otherwise estimate based on label length
-        const tabElement = tabElements[index] as HTMLElement
-        // Estimate: icon (20px) + padding (16px) + text (8px per char) + borders (2px) + close buttons area (40px)
-        const estimatedWidth = Math.min(256, Math.max(80, tab.label.length * 7 + 78))
-        const tabWidth = tabElement?.offsetWidth || estimatedWidth
+        // Check if we can fit this tab
+        // If this would be the first tab in overflow, we need space for overflow menu
+        const wouldBeFirstOverflow = overflow.length === 0
+        const overflowMenuSpace = wouldBeFirstOverflow ? overflowMenuWidth : 0
         
-        // Check if adding this tab would exceed available width
-        // If this would be the first overflow tab, account for overflow menu width
-        const spaceNeeded = totalWidth + tabWidth + (overflow.length === 0 ? overflowMenuWidth : 0)
-        const wouldExceed = spaceNeeded > availableWidth
-        
-        if (!wouldExceed) {
+        if (totalWidth + tabWidth + overflowMenuSpace <= availableWidth) {
           visible.push(tab)
           totalWidth += tabWidth
         } else {
-          // Once we start overflowing, all remaining tabs go to overflow
+          // Can't fit this tab, put it and all remaining tabs in overflow
           overflow.push(...tabs.slice(index))
           break
         }
@@ -126,16 +137,62 @@ export default function TabsRegion() {
       setOverflowTabs(overflow)
     }
 
-    // Use requestAnimationFrame to ensure DOM is ready
-    const rafId = requestAnimationFrame(() => {
-      updateVisibleTabs()
+    // Debounce function to prevent excessive updates
+    let rafId: number | null = null
+    const debouncedUpdate = () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId)
+      }
+      rafId = requestAnimationFrame(updateVisibleTabs)
+    }
+
+    // Use ResizeObserver for more accurate measurements
+    const resizeObserver = new ResizeObserver(() => {
+      debouncedUpdate()
     })
     
-    window.addEventListener('resize', updateVisibleTabs)
+    // Observe the container for size changes
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+      
+      // Also observe the parent TabBar container to catch viewport changes
+      const tabBarContainer = containerRef.current.parentElement
+      if (tabBarContainer) {
+        resizeObserver.observe(tabBarContainer)
+      }
+    }
+    
+    // Also observe the toolbar group to catch when it changes size
+    // Use a small delay to ensure it's rendered
+    const observeToolbar = () => {
+      const toolbarGroup = containerRef.current?.parentElement?.querySelector('[data-toolbar-group]') as HTMLElement
+      if (toolbarGroup) {
+        resizeObserver.observe(toolbarGroup)
+      }
+    }
+    observeToolbar()
+    // Also try after a short delay in case it's not rendered yet
+    const toolbarTimeoutId = setTimeout(observeToolbar, 100)
+    
+    // Observe the tabs container to catch when tab sizes change
+    if (tabsContainerRef.current) {
+      resizeObserver.observe(tabsContainerRef.current)
+    }
+    
+    // Also update on window resize (viewport changes)
+    window.addEventListener('resize', debouncedUpdate)
+    
+    // Calculate overflow after tabs are rendered
+    const timeoutId = setTimeout(updateVisibleTabs, 50)
     
     return () => {
-      cancelAnimationFrame(rafId)
-      window.removeEventListener('resize', updateVisibleTabs)
+      resizeObserver.disconnect()
+      if (rafId) {
+        cancelAnimationFrame(rafId)
+      }
+      clearTimeout(timeoutId)
+      clearTimeout(toolbarTimeoutId)
+      window.removeEventListener('resize', debouncedUpdate)
     }
   }, [tabs])
 
@@ -164,7 +221,7 @@ export default function TabsRegion() {
   }
 
   return (
-    <div ref={containerRef} className="flex flex-1 items-center overflow-hidden">
+    <div ref={containerRef} className="flex flex-1 items-center overflow-hidden min-w-0">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -174,31 +231,37 @@ export default function TabsRegion() {
           items={visibleTabs.map((t) => t.id)}
           strategy={horizontalListSortingStrategy}
         >
-          <div className="flex flex-1 items-center">
+          <div ref={tabsContainerRef} className="flex flex-1 items-center min-w-0 overflow-hidden">
+            {/* Render visible tabs only - measurement happens in useEffect with all tabs rendered initially */}
             {visibleTabs.map((tab, index) => (
-              <SortableTabItem
-                key={tab.id}
-                tab={tab}
-                isActive={tab.id === activeTabId}
-                index={index}
-              />
+              <div key={tab.id} className="flex-shrink-0">
+                <SortableTabItem
+                  tab={tab}
+                  isActive={tab.id === activeTabId}
+                  index={index}
+                />
+              </div>
             ))}
             {overflowTabs.length > 0 && (
-              <TabOverflowMenu
-                overflowTabs={overflowTabs.map((t) => ({
-                  id: t.id,
-                  label: t.label,
-                }))}
-              />
+              <div className="flex-shrink-0">
+                <TabOverflowMenu
+                  overflowTabs={overflowTabs.map((t) => ({
+                    id: t.id,
+                    label: t.label,
+                  }))}
+                />
+              </div>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-11 w-11 rounded-none border-r border-border"
-              onClick={handleNewTab}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+            <div className="flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 rounded-none border-r border-border"
+                onClick={handleNewTab}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </SortableContext>
       </DndContext>

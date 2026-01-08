@@ -18,7 +18,14 @@ export default function TabOverflowMenu({ overflowTabs }: TabOverflowMenuProps) 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-11 w-8">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-11 w-8 border-r rounded-none"
+          style={{
+            borderColor: 'rgba(0,0,0,0.15)',
+          }}
+        >
           <ChevronDown className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
