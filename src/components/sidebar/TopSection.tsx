@@ -32,12 +32,11 @@ export default function TopSection() {
         <Plus className="h-4 w-4 shrink-0" />
         {!isCollapsed && <span className="text-sm font-semibold">Create new</span>}
       </Button>
-      <div className="h-px bg-border" />
       <div className="flex flex-col gap-1">
         <Button
           variant="ghost"
           className={cn(
-            "group min-h-[36px] gap-px rounded-[4px] shadow-[0px_1px_4px_rgba(12,12,13,0.05)] transition-colors",
+            "group min-h-[36px] gap-px rounded-[4px] transition-colors",
             isCollapsed 
               ? "w-full justify-center p-[2px]" 
               : "justify-start pl-[2px] pr-[8px] py-[2px] hover:bg-[#e0e5ec]"
@@ -54,7 +53,7 @@ export default function TopSection() {
         <Button
           variant="ghost"
           className={cn(
-            "group min-h-[36px] gap-px rounded-[4px] shadow-[0px_1px_4px_rgba(12,12,13,0.05)] transition-colors",
+            "group min-h-[36px] gap-px rounded-[4px] transition-colors",
             isCollapsed 
               ? "w-full justify-center p-[2px]" 
               : "justify-start pl-[2px] pr-[8px] py-[2px] hover:bg-[#e0e5ec]"
@@ -71,7 +70,7 @@ export default function TopSection() {
         <Button
           variant="ghost"
           className={cn(
-            "group min-h-[36px] gap-px rounded-[4px] shadow-[0px_1px_4px_rgba(12,12,13,0.05)] transition-colors",
+            "group min-h-[36px] gap-px rounded-[4px] transition-colors",
             isCollapsed 
               ? "w-full justify-center p-[2px]" 
               : "justify-start pl-[2px] pr-[8px] py-[2px] hover:bg-[#e0e5ec]"

@@ -47,11 +47,11 @@ export default function TabItem({ tab, isActive }: TabItemProps) {
           !isActive && 'group-hover:bg-[#e0e5ec]'
         )}
       >
-        <div className="flex h-5 w-5 shrink-0 items-center justify-center overflow-clip rounded-[4px] p-[8px]">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-clip rounded-[4px] p-[10px]">
           {tab.icon ? (
             <span className="text-xs">{tab.icon}</span>
           ) : (
-            <File className="h-5 w-5 text-[rgba(64,64,64,1)]" />
+            <File className="h-4 w-4 text-[rgba(64,64,64,1)]" />
           )}
         </div>
         <span
@@ -79,7 +79,7 @@ export default function TabItem({ tab, isActive }: TabItemProps) {
                   e.stopPropagation()
                 }}
               >
-                <MoreHorizontal className="h-5 w-5" />
+                <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -103,7 +103,7 @@ export default function TabItem({ tab, isActive }: TabItemProps) {
                 e.stopPropagation()
               }}
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </Button>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { ChevronRight, Pin, MoreHorizontal, File, Folder } from 'lucide-react'
+import { ChevronRight, Pin, MoreHorizontal, File, Folder, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -9,6 +9,7 @@ import {
 import { useSidebarStore } from '@/stores/sidebarStore'
 import { useTabStore } from '@/stores/tabStore'
 import type { Asset, AssetType } from '@/types'
+import { cn } from '@/lib/utils'
 import { useState } from 'react'
 
 // Mock data for different flyout types
@@ -92,7 +93,7 @@ function TreeItem({ item, level, onItemClick, onPinClick }: TreeItemProps) {
   return (
     <div>
       <div
-        className="group flex min-h-[36px] items-center gap-px rounded-[4px] pl-[2px] pr-[8px] py-[2px] shadow-[0px_1px_4px_rgba(12,12,13,0.05)] transition-colors hover:bg-[#e0e5ec]"
+        className="group flex min-h-[36px] items-center gap-px rounded-[4px] pl-[2px] pr-[8px] py-[2px] transition-colors hover:bg-[#e0e5ec]"
         style={{ paddingLeft: `${2 + level * 16}px` }}
       >
         {hasChildren ? (
@@ -112,21 +113,11 @@ function TreeItem({ item, level, onItemClick, onPinClick }: TreeItemProps) {
         </div>
         <button
           onClick={() => onItemClick(item)}
-          className="flex flex-1 items-center"
+          className="flex min-w-0 flex-1 items-center overflow-hidden"
         >
-          <span className="truncate text-sm leading-4 text-[#404040]">{item.name}</span>
+          <span className="text-sm leading-4 text-[#404040] whitespace-nowrap overflow-hidden text-ellipsis">{item.name}</span>
         </button>
-        <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-[4px] p-[10px] hover:bg-transparent"
-            onClick={handlePin}
-          >
-            <Pin
-              className={`h-4 w-4 ${isPinned ? 'fill-current' : ''}`}
-            />
-          </Button>
+        <div className="ml-auto flex shrink-0 items-center gap-1 hidden group-hover:flex">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-[4px] p-[10px] hover:bg-transparent">
@@ -139,6 +130,22 @@ function TreeItem({ item, level, onItemClick, onPinClick }: TreeItemProps) {
               <DropdownMenuItem>Properties</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-8 w-8 rounded-[4px] p-[10px] hover:bg-transparent",
+              isPinned && "text-[#404040]"
+            )}
+            onClick={handlePin}
+          >
+            <Pin
+              className={cn(
+                "h-4 w-4",
+                isPinned && "fill-current"
+              )}
+            />
+          </Button>
         </div>
       </div>
       {isExpanded && hasChildren && (
@@ -188,10 +195,10 @@ export default function FlyoutPanel() {
 
   return (
     <div className="flex h-full w-64 flex-col border-r border-border bg-white">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2">
+      <div className="flex h-11 items-center justify-between border-b border-border px-2">
         <h3 className="text-sm font-semibold capitalize">{flyoutType}</h3>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={closeFlyout}>
-          ×
+        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={closeFlyout}>
+          <X className="h-4 w-4" />
         </Button>
       </div>
       <div className="flex-1 overflow-y-auto p-2">

@@ -12,7 +12,7 @@ export default function BottomSection() {
   return (
     <div className="flex flex-col gap-1 border-t border-border px-1 py-2">
       <Button variant="ghost" className={cn(
-        "group min-h-[36px] gap-px rounded-[4px] shadow-[0px_1px_4px_rgba(12,12,13,0.05)] transition-colors",
+        "group min-h-[36px] gap-px rounded-[4px] transition-colors",
         isCollapsed 
           ? "w-full justify-center p-[2px]" 
           : "justify-start pl-[2px] pr-[8px] py-[2px] hover:bg-[#e0e5ec]"
@@ -31,7 +31,7 @@ export default function BottomSection() {
         )} */}
       </Button>
       <Button variant="ghost" className={cn(
-        "group min-h-[36px] gap-px rounded-[4px] shadow-[0px_1px_4px_rgba(12,12,13,0.05)] transition-colors",
+        "group min-h-[36px] gap-px rounded-[4px] transition-colors",
         isCollapsed 
           ? "w-full justify-center p-[2px]" 
           : "justify-start pl-[2px] pr-[8px] py-[2px] hover:bg-[#e0e5ec]"
@@ -44,7 +44,7 @@ export default function BottomSection() {
         )}
       </Button>
       <Button variant="ghost" className={cn(
-        "group min-h-[36px] gap-px rounded-[4px] shadow-[0px_1px_4px_rgba(12,12,13,0.05)] transition-colors",
+        "group min-h-[36px] gap-px rounded-[4px] transition-colors",
         isCollapsed 
           ? "w-full justify-center p-[2px]" 
           : "justify-start pl-[2px] pr-[8px] py-[2px] hover:bg-[#e0e5ec]"
@@ -57,7 +57,7 @@ export default function BottomSection() {
         )}
       </Button>
       <Button variant="ghost" className={cn(
-        "group min-h-[36px] gap-px rounded-[4px] shadow-[0px_1px_4px_rgba(12,12,13,0.05)] transition-colors",
+        "group min-h-[36px] gap-px rounded-[4px] transition-colors",
         isCollapsed 
           ? "w-full justify-center p-[2px]" 
           : "justify-start pl-[2px] pr-[8px] py-[2px] hover:bg-[#e0e5ec]"

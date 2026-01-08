@@ -21,8 +21,8 @@ export default function MiddleSection() {
       <Button
         variant="ghost"
         className={cn(
-          "h-9",
-          isCollapsed ? "w-full justify-center" : "justify-start gap-2 px-2"
+          "h-9 transition-colors",
+          isCollapsed ? "w-full justify-center" : "justify-start gap-2 px-2 hover:bg-[#e0e5ec]"
         )}
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -47,7 +47,7 @@ export default function MiddleSection() {
                 key={item.id}
                 variant="ghost"
                 className={cn(
-                  "group min-h-[36px] gap-px rounded-[4px] shadow-[0px_1px_4px_rgba(12,12,13,0.05)] transition-colors",
+                  "group min-h-[36px] gap-px rounded-[4px] transition-colors",
                   isCollapsed 
                     ? "w-full justify-center p-[2px]" 
                     : "justify-start pl-[2px] pr-[8px] py-[2px] hover:bg-[#e0e5ec]"
