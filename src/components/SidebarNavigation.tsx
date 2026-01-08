@@ -1,0 +1,36 @@
+import { useSidebarStore } from '@/stores/sidebarStore'
+import SidebarHeader from './sidebar/SidebarHeader'
+import TopSection from './sidebar/TopSection'
+import MiddleSection from './sidebar/MiddleSection'
+import BottomSection from './sidebar/BottomSection'
+import FlyoutPanel from './sidebar/FlyoutPanel'
+import { cn } from '@/lib/utils'
+
+export default function SidebarNavigation() {
+  const { state, flyoutType } = useSidebarStore()
+
+  if (state === 'minimized') {
+    return (
+      <div className="flex h-full w-11 flex-col border-r border-border bg-[#fafafc]">
+        <SidebarHeader />
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative flex h-full">
+      <div
+        className={cn(
+          'flex h-full flex-col border-r border-border bg-[#fafafc] transition-all',
+          state === 'expanded' ? 'w-[282px]' : 'w-12'
+        )}
+      >
+        <SidebarHeader />
+        <TopSection />
+        <MiddleSection />
+        <BottomSection />
+      </div>
+      {flyoutType && <FlyoutPanel />}
+    </div>
+  )
+}
