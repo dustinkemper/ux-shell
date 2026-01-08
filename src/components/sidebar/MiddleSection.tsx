@@ -22,8 +22,8 @@ export default function MiddleSection() {
         <Button
           variant="ghost"
           className={cn(
-            "transition-colors p-1",
-            isCollapsed ? "h-[36px] w-[36px] justify-center" : "h-full w-full justify-start gap-2 hover:bg-[#e0e5ec]"
+            "transition-colors p-1 font-normal hover:bg-[#e0e5ec]",
+            isCollapsed ? "h-[36px] w-[36px] justify-center" : "h-full w-full justify-start gap-2"
           )}
           onClick={() => setIsExpanded(!isExpanded)}
         >
@@ -31,7 +31,7 @@ export default function MiddleSection() {
             className={`h-4 w-4 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
           />
           {!isCollapsed && (
-            <span className="text-xs font-semibold uppercase text-muted-foreground">
+            <span className="text-xs uppercase text-muted-foreground">
               Pins
             </span>
           )}
@@ -49,10 +49,10 @@ export default function MiddleSection() {
                 <Button
                   variant="ghost"
                   className={cn(
-                    "group gap-px rounded-[4px] transition-colors p-1",
+                    "group gap-px rounded-[4px] transition-colors p-1 font-normal hover:bg-[#e0e5ec]",
                     isCollapsed 
                       ? "h-[36px] w-[36px] justify-center" 
-                      : "h-full w-full justify-start hover:bg-[#e0e5ec]"
+                      : "h-full w-full justify-start"
                   )}
                   onClick={() => handlePinClick(item)}
                 >
