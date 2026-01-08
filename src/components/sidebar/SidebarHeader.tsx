@@ -24,7 +24,7 @@ export default function SidebarHeader() {
 
   return (
     <div className={cn(
-      "flex h-11 items-center border-b border-border",
+      "flex h-11 items-center border-b border-[rgba(0,0,0,0.15)]",
       isCollapsed ? "justify-center" : "gap-1 px-2"
     )}>
       <Button

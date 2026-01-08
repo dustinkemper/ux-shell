@@ -17,7 +17,7 @@ export default function MiddleSection() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-2 border-t border-b border-border px-1 py-2">
+    <div className="flex flex-1 flex-col gap-2 border-t border-b border-[rgba(0,0,0,0.15)] px-1 py-2">
       <Button
         variant="ghost"
         className={cn(

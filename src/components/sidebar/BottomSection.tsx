@@ -10,7 +10,7 @@ export default function BottomSection() {
   const isCollapsed = state === 'collapsed'
 
   return (
-    <div className="flex flex-col gap-1 border-t border-border px-1 py-2">
+    <div className="flex flex-col gap-1 border-t border-[rgba(0,0,0,0.15)] px-1 py-2">
       <Button variant="ghost" className={cn(
         "group min-h-[36px] gap-px rounded-[4px] transition-colors",
         isCollapsed 

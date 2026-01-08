@@ -21,9 +21,12 @@ export default function SidebarNavigation() {
     <div className="relative flex h-full">
       <div
         className={cn(
-          'flex h-full flex-col border-r border-border bg-[#fafafc] transition-all',
-          state === 'expanded' ? 'w-[282px]' : 'w-12'
+          'flex h-full flex-col border-r border-[rgba(0,0,0,0.15)] bg-[#f7fafb] transition-all',
+          state === 'expanded' ? 'w-[282px]' : 'w-[45px]'
         )}
+        style={{
+          width: state === 'expanded' ? '282px' : '45px'
+        }}
       >
         <SidebarHeader />
         <TopSection />
