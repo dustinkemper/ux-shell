@@ -22,10 +22,10 @@ export default function SidebarNavigation() {
       <div
         className={cn(
           'flex h-full flex-col border-r border-[rgba(0,0,0,0.15)] bg-[#f7fafb] transition-all',
-          state === 'expanded' ? 'w-[282px]' : 'w-[45px]'
+          state === 'expanded' ? 'w-[283px]' : 'w-[45px]'
         )}
         style={{
-          width: state === 'expanded' ? '282px' : '45px'
+          width: state === 'expanded' ? '283px' : '45px'
         }}
       >
         <SidebarHeader />
