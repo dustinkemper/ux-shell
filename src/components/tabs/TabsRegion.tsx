@@ -13,6 +13,7 @@ import {
   useSensors,
   DragEndEvent,
 } from '@dnd-kit/core'
+import { restrictToHorizontalAxis } from '@dnd-kit/modifiers'
 import {
   SortableContext,
   sortableKeyboardCoordinates,
@@ -162,6 +163,7 @@ export default function TabsRegion() {
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
+          modifiers={[restrictToHorizontalAxis]}
         >
           <SortableContext
             items={tabs.map((t) => t.id)}
