@@ -29,6 +29,9 @@ export interface Asset {
 }
 
 // Tab types
+export type TabState = 'default' | 'hover' | 'focus' | 'edit' | 'loading' | 'error'
+export type TabStatus = 'clean' | 'dirty' | 'error' | null
+
 export interface Tab {
   id: string
   label: string
@@ -36,6 +39,8 @@ export interface Tab {
   assetId?: string
   isLocked: boolean
   content?: React.ReactNode
+  state?: TabState
+  status?: TabStatus
 }
 
 // Sidebar state

@@ -9,9 +9,9 @@ export default function TabBar() {
   const isMinimized = state === 'minimized'
 
   return (
-    <div className="flex h-[44px] items-center border-b border-border bg-[#fafafc] overflow-visible">
+    <div className="flex h-11 items-center border-b border-border bg-[#dfe5e6]">
       {isMinimized && (
-        <div className="flex shrink-0 items-center border-r border-border">
+        <div className="flex items-center border-r border-border">
           <Button
             variant="ghost"
             size="icon"
