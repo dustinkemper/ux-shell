@@ -196,7 +196,7 @@ function TreeItem({ item, level, onItemClick, onPinClick, selectedId }: TreeItem
               e.stopPropagation()
               setIsExpanded(!isExpanded)
             }}
-            className="flex h-4 w-4 shrink-0 items-center justify-center"
+            className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] hover:bg-gray-200/50 transition-colors"
           >
             <ChevronRight
               className={cn(
@@ -230,7 +230,7 @@ function TreeItem({ item, level, onItemClick, onPinClick, selectedId }: TreeItem
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-[4px] p-1 hover:bg-transparent"
+                className="h-8 w-8 rounded-[4px] p-1 hover:bg-gray-200/50"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4 text-[#5e656a]" />
@@ -246,7 +246,7 @@ function TreeItem({ item, level, onItemClick, onPinClick, selectedId }: TreeItem
             variant="ghost"
             size="icon"
             className={cn(
-              'h-8 w-8 rounded-[4px] p-1 hover:bg-transparent',
+              'h-8 w-8 rounded-[4px] p-1 hover:bg-gray-200/50',
               isPinned && 'text-[#18191a]'
             )}
             onClick={handlePin}
@@ -310,7 +310,7 @@ function SectionHeader({ title, isExpanded, onToggle }: SectionHeaderProps) {
       </span>
       <button
         onClick={onToggle}
-        className="flex h-4 w-4 items-center justify-center rounded-[4px] p-1"
+        className="flex h-4 w-4 items-center justify-center rounded-[4px] p-1 hover:bg-gray-200/50 transition-colors"
       >
         {isExpanded ? (
           <ChevronUp className="h-4 w-4 text-[#18191a]" />
@@ -405,7 +405,7 @@ export default function FlyoutPanel() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-transparent"
+          className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-gray-200/50"
           onClick={() => {}}
         >
           <MoreHorizontal className="h-4 w-4 text-[#18191a]" />
@@ -413,7 +413,7 @@ export default function FlyoutPanel() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-transparent"
+          className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-gray-200/50"
           onClick={closeFlyout}
         >
           <X className="h-4 w-4 text-[#18191a]" />
@@ -439,21 +439,21 @@ export default function FlyoutPanel() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-transparent"
+                className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-gray-200/50"
               >
                 <ArrowDownAZ className="h-4 w-4 text-[#5e656a]" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-transparent"
+                className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-gray-200/50"
               >
                 <FolderPlus className="h-4 w-4 text-[#5e656a]" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-transparent"
+                className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-gray-200/50"
               >
                 <RotateCw className="h-4 w-4 text-[#5e656a]" />
               </Button>
