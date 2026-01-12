@@ -362,7 +362,6 @@ export default function FlyoutPanel() {
     setSelectedItemId(item.id)
     if (item.type !== 'workspace' && item.type !== 'folder') {
       openTab(item)
-      closeFlyout()
     }
   }
 
@@ -464,39 +463,39 @@ export default function FlyoutPanel() {
 
         {/* Filter Buttons - Tools */}
         {flyoutType === 'more' && (
-          <div className="flex items-center justify-between">
-            <div className="flex gap-2 rounded-[8px] bg-[#f7fafb] p-[2px]">
+          <div className="flex w-full items-center justify-between">
+            <div className="flex flex-1 gap-2 rounded-[8px] bg-[#f7fafb] p-[2px]">
               <Button
-                variant={selectedFilter === 'all' ? 'default' : 'ghost'}
+                variant="ghost"
                 className={cn(
-                  'h-8 rounded-[6px] px-3 text-sm',
+                  'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
                   selectedFilter === 'all'
-                    ? 'bg-white text-[#18191a]'
-                    : 'text-[#5e656a] hover:bg-transparent'
+                    ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
+                    : 'text-[#5e656a] hover:bg-white/50'
                 )}
                 onClick={() => setSelectedFilter('all')}
               >
                 All
               </Button>
               <Button
-                variant={selectedFilter === 'data-integration' ? 'default' : 'ghost'}
+                variant="ghost"
                 className={cn(
-                  'h-8 rounded-[6px] px-3 text-sm',
+                  'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
                   selectedFilter === 'data-integration'
-                    ? 'bg-white text-[#18191a]'
-                    : 'text-[#5e656a] hover:bg-transparent'
+                    ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
+                    : 'text-[#5e656a] hover:bg-white/50'
                 )}
                 onClick={() => setSelectedFilter('data-integration')}
               >
                 Data integration
               </Button>
               <Button
-                variant={selectedFilter === 'analytics' ? 'default' : 'ghost'}
+                variant="ghost"
                 className={cn(
-                  'h-8 rounded-[6px] px-3 text-sm',
+                  'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
                   selectedFilter === 'analytics'
-                    ? 'bg-white text-[#18191a]'
-                    : 'text-[#5e656a] hover:bg-transparent'
+                    ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
+                    : 'text-[#5e656a] hover:bg-white/50'
                 )}
                 onClick={() => setSelectedFilter('analytics')}
               >
@@ -508,39 +507,39 @@ export default function FlyoutPanel() {
 
         {/* Filter Buttons - Catalog */}
         {flyoutType === 'catalog' && (
-          <div className="flex items-center justify-between">
-            <div className="flex gap-2 rounded-[8px] bg-[#f7fafb] p-[2px]">
+          <div className="flex w-full items-center justify-between">
+            <div className="flex flex-1 gap-2 rounded-[8px] bg-[#f7fafb] p-[2px]">
               <Button
-                variant={selectedFilter === 'all' ? 'default' : 'ghost'}
+                variant="ghost"
                 className={cn(
-                  'h-8 rounded-[6px] px-3 text-sm',
+                  'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
                   selectedFilter === 'all'
-                    ? 'bg-white text-[#18191a]'
-                    : 'text-[#5e656a] hover:bg-transparent'
+                    ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
+                    : 'text-[#5e656a] hover:bg-white/50'
                 )}
                 onClick={() => setSelectedFilter('all')}
               >
                 All
               </Button>
               <Button
-                variant={selectedFilter === 'favorites' ? 'default' : 'ghost'}
+                variant="ghost"
                 className={cn(
-                  'h-8 rounded-[6px] px-3 text-sm',
+                  'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
                   selectedFilter === 'favorites'
-                    ? 'bg-white text-[#18191a]'
-                    : 'text-[#5e656a] hover:bg-transparent'
+                    ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
+                    : 'text-[#5e656a] hover:bg-white/50'
                 )}
                 onClick={() => setSelectedFilter('favorites')}
               >
                 Favorites
               </Button>
               <Button
-                variant={selectedFilter === 'collections' ? 'default' : 'ghost'}
+                variant="ghost"
                 className={cn(
-                  'h-8 rounded-[6px] px-3 text-sm',
+                  'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
                   selectedFilter === 'collections'
-                    ? 'bg-white text-[#18191a]'
-                    : 'text-[#5e656a] hover:bg-transparent'
+                    ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
+                    : 'text-[#5e656a] hover:bg-white/50'
                 )}
                 onClick={() => setSelectedFilter('collections')}
               >
@@ -612,7 +611,7 @@ export default function FlyoutPanel() {
 
         {/* Bottom Action Button - Catalog */}
         {flyoutType === 'catalog' && (
-          <div className="flex flex-col items-start p-3 pt-0">
+          <div className="flex flex-col items-start p-0">
             <div className="flex w-full items-start">
               <Button
                 className="h-9 w-full gap-2 rounded-[8px] bg-[#328be5] px-2 py-2 text-sm font-semibold text-white hover:bg-[#328be5]/90"
