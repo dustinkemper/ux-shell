@@ -9,6 +9,7 @@ interface TabStore {
   renameTab: (tabId: string, label: string) => void
   setTabIcon: (tabId: string, icon?: string) => void
   setTabAsset: (tabId: string, asset: Asset) => void
+  setTabPage: (tabId: string, pageType: PageType, label: string, icon?: string) => void
   closeTab: (tabId: string) => void
   setActiveTab: (tabId: string) => void
   reorderTabs: (fromIndex: number, toIndex: number) => void
@@ -89,6 +90,21 @@ export const useTabStore = create<TabStore>((set, get) => ({
               assetId: asset.id,
               pageType: undefined,
               icon: asset.type,
+            }
+          : tab
+      ),
+    }))
+  },
+  setTabPage: (tabId, pageType, label, icon) => {
+    set((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.id === tabId
+          ? {
+              ...tab,
+              label,
+              pageType,
+              assetId: undefined,
+              icon,
             }
           : tab
       ),

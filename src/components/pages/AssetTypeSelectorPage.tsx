@@ -216,7 +216,7 @@ const warehouseFields: FieldDefinition[] = [
 
 export default function AssetTypeSelectorPage() {
   const { addAsset } = useCatalogStore()
-  const { activeTabId, renameTab, setTabIcon, setTabAsset } = useTabStore()
+  const { activeTabId, renameTab, setTabIcon, setTabAsset, setTabPage } = useTabStore()
 
   const [step, setStep] = useState<CreateStep>('asset-type')
   const [selectedAssetType, setSelectedAssetType] = useState<AssetType | null>(null)
@@ -267,6 +267,10 @@ export default function AssetTypeSelectorPage() {
     }
     if (type === 'connection') {
       setStep('connection-type')
+    } else if (type === 'pipeline') {
+      if (activeTabId) {
+        setTabPage(activeTabId, 'create-pipeline', 'Create Pipeline', 'pipeline')
+      }
     } else {
       setStep('not-implemented')
     }
@@ -460,6 +464,28 @@ export default function AssetTypeSelectorPage() {
       {step === 'connection-credentials' && selectedConnectionType && (
         <div className="flex-1 overflow-auto p-6">
           <div className="mx-auto max-w-3xl space-y-8">
+            <div className="flex items-center gap-4 rounded-lg border border-border bg-white p-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-50">
+                <img
+                  src={selectedConnectionType.logo}
+                  alt={`${selectedConnectionType.name} logo`}
+                  className="h-8 w-8 object-contain"
+                />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Connection type</p>
+                <h2 className="text-lg font-semibold">{selectedConnectionType.name}</h2>
+              </div>
+              <div className="ml-auto">
+                <span className="rounded-full border border-border bg-gray-50 px-3 py-1 text-xs font-medium text-muted-foreground">
+                  {selectedConnectionType.category === 'Databases'
+                    ? 'Database'
+                    : selectedConnectionType.category === 'Business Platforms'
+                      ? 'Platform'
+                      : 'Warehouse'}
+                </span>
+              </div>
+            </div>
             <div className="rounded-lg border border-border p-6">
               <h2 className="text-lg font-semibold">Workspace</h2>
               <div className="mt-3">
