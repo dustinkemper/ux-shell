@@ -65,8 +65,6 @@ export const getPageIcon = (pageType: PageType): LucideIcon => {
       return Library
     case 'asset-type-selector':
       return Plus
-    case 'create-connection':
-      return Database
     case 'create-pipeline':
       return Workflow
     case 'create-asset':

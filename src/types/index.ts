@@ -23,6 +23,7 @@ export interface Asset {
   name: string
   type: AssetType
   icon?: string
+  description?: string
   parentId?: string
   children?: Asset[]
   isPinned?: boolean
@@ -45,6 +46,14 @@ export interface ConnectionMetadata {
   port?: number
   database?: string
   username?: string
+  schema?: string
+  account?: string
+  warehouse?: string
+  role?: string
+  apiKey?: string
+  clientId?: string
+  clientSecret?: string
+  accountId?: string
   // Note: In real app, password would be encrypted/stored securely
 }
 
@@ -73,7 +82,7 @@ export interface Table {
 export type TabState = 'default' | 'hover' | 'focus' | 'edit' | 'loading' | 'error'
 export type TabStatus = 'clean' | 'dirty' | 'error' | null
 
-export type PageType = 'catalog' | 'asset-type-selector' | 'create-connection' | 'create-pipeline' | 'create-asset'
+export type PageType = 'catalog' | 'asset-type-selector' | 'create-pipeline' | 'create-asset'
 
 export interface Tab {
   id: string

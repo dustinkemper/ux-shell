@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useTabStore } from '@/stores/tabStore'
 import { useCatalogStore } from '@/stores/catalogStore'
-import type { Tab } from '@/types'
+import type { Tab, AssetType } from '@/types'
 import { cn } from '@/lib/utils'
 import { getAssetIcon, getPageIcon, getIconByName } from '@/lib/iconUtils'
 import { useState } from 'react'
@@ -26,11 +26,39 @@ export default function TabItem({ tab, isActive }: TabItemProps) {
   const [isEditing, setIsEditing] = useState(false)
 
   // Get the appropriate icon component
+  const isAssetType = (value: string): value is AssetType => {
+    return [
+      'connection',
+      'pipeline',
+      'analytics-app',
+      'automation',
+      'dataflow',
+      'data-product',
+      'knowledge-base',
+      'monitor-view',
+      'script',
+      'predict',
+      'table-recipe',
+      'glossary',
+      'ai-assistant',
+      'workspace',
+      'folder',
+    ].includes(value)
+  }
+
   const getIconComponent = () => {
     if (tab.id === 'home') {
       return Home
     }
     
+    // If an explicit icon is set, prefer it (including asset type icons)
+    if (tab.icon) {
+      if (isAssetType(tab.icon)) {
+        return getAssetIcon(tab.icon)
+      }
+      return getIconByName(tab.icon)
+    }
+
     // For page tabs, use page type icon
     if (tab.pageType) {
       return getPageIcon(tab.pageType)
@@ -42,11 +70,6 @@ export default function TabItem({ tab, isActive }: TabItemProps) {
       if (asset) {
         return getAssetIcon(asset.type)
       }
-    }
-    
-    // Fallback: try to use icon name if provided
-    if (tab.icon) {
-      return getIconByName(tab.icon)
     }
     
     // Default fallback

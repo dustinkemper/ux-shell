@@ -127,12 +127,29 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
     const newAsset = {
       ...asset,
       modified: new Date(),
-      owner: 'Ron Swanson', // Default owner for new assets
+      owner: asset.owner ?? 'Ron Swanson', // Default owner for new assets
       quality: asset.quality ?? 82, // Default quality
     }
-    set((state) => ({
-      assets: [...state.assets, newAsset],
-    }))
+
+    const insertChild = (assets: Asset[], parentId: string): Asset[] => {
+      return assets.map((item) => {
+        if (item.id === parentId) {
+          const children = item.children ? [...item.children, newAsset] : [newAsset]
+          return { ...item, children }
+        }
+        if (item.children) {
+          return { ...item, children: insertChild(item.children, parentId) }
+        }
+        return item
+      })
+    }
+
+    set((state) => {
+      if (newAsset.parentId) {
+        return { assets: insertChild(state.assets, newAsset.parentId) }
+      }
+      return { assets: [...state.assets, newAsset] }
+    })
   },
 
   updateAsset: (id, updates) => {

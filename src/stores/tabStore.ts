@@ -6,6 +6,9 @@ interface TabStore {
   activeTabId: string | null
   openTab: (asset: Asset) => void
   openPageTab: (pageType: PageType, label: string, icon?: string) => void
+  renameTab: (tabId: string, label: string) => void
+  setTabIcon: (tabId: string, icon?: string) => void
+  setTabAsset: (tabId: string, asset: Asset) => void
   closeTab: (tabId: string) => void
   setActiveTab: (tabId: string) => void
   reorderTabs: (fromIndex: number, toIndex: number) => void
@@ -58,6 +61,35 @@ export const useTabStore = create<TabStore>((set, get) => ({
       tabs: [...tabs, newTab],
       activeTabId: newTab.id,
     })
+  },
+  renameTab: (tabId, label) => {
+    set((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.id === tabId ? { ...tab, label } : tab
+      ),
+    }))
+  },
+  setTabIcon: (tabId, icon) => {
+    set((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.id === tabId ? { ...tab, icon } : tab
+      ),
+    }))
+  },
+  setTabAsset: (tabId, asset) => {
+    set((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.id === tabId
+          ? {
+              ...tab,
+              label: asset.name,
+              assetId: asset.id,
+              pageType: undefined,
+              icon: asset.type,
+            }
+          : tab
+      ),
+    }))
   },
   closeTab: (tabId) => {
     const tab = get().tabs.find((t) => t.id === tabId)
