@@ -1,10 +1,11 @@
 import { create } from 'zustand'
-import type { Tab, Asset } from '@/types'
+import type { Tab, Asset, PageType } from '@/types'
 
 interface TabStore {
   tabs: Tab[]
   activeTabId: string | null
   openTab: (asset: Asset) => void
+  openPageTab: (pageType: PageType, label: string, icon?: string) => void
   closeTab: (tabId: string) => void
   setActiveTab: (tabId: string) => void
   reorderTabs: (fromIndex: number, toIndex: number) => void
@@ -31,6 +32,26 @@ export const useTabStore = create<TabStore>((set, get) => ({
       id: `tab-${asset.id}`,
       label: asset.name,
       assetId: asset.id,
+      isLocked: false,
+      // Icon will be determined by TabItem based on asset type
+    }
+    set({
+      tabs: [...tabs, newTab],
+      activeTabId: newTab.id,
+    })
+  },
+  openPageTab: (pageType, label, icon) => {
+    const tabs = get().tabs
+    const existingTab = tabs.find((t) => t.pageType === pageType)
+    if (existingTab) {
+      set({ activeTabId: existingTab.id })
+      return
+    }
+    const newTab: Tab = {
+      id: `page-${pageType}`,
+      label,
+      pageType,
+      icon,
       isLocked: false,
     }
     set({
@@ -66,4 +87,5 @@ export const useTabStore = create<TabStore>((set, get) => ({
     // Placeholder for overflow handling logic
   },
 }))
+
 

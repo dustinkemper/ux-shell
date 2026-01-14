@@ -1,9 +1,22 @@
-import { ChevronRight, Pin } from 'lucide-react'
+import { ChevronRight, File, Folder } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useSidebarStore } from '@/stores/sidebarStore'
 import { useTabStore } from '@/stores/tabStore'
+import type { AssetType } from '@/types'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
+
+const getIconForType = (type: AssetType, isCollapsed: boolean) => {
+  const marginClass = isCollapsed ? "" : "mr-2"
+  switch (type) {
+    case 'workspace':
+      return <Folder className={cn("h-4 w-4 shrink-0 text-[rgba(109,109,109,1)] group-hover:text-[rgba(64,64,64,1)]", marginClass)} />
+    case 'folder':
+      return <Folder className={cn("h-4 w-4 shrink-0 text-[rgba(109,109,109,1)] group-hover:text-[rgba(64,64,64,1)]", marginClass)} />
+    default:
+      return <File className={cn("h-4 w-4 shrink-0 text-[rgba(109,109,109,1)] group-hover:text-[rgba(64,64,64,1)]", marginClass)} />
+  }
+}
 
 export default function MiddleSection() {
   const { state, pinnedItems } = useSidebarStore()
@@ -17,53 +30,69 @@ export default function MiddleSection() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-2 border-t border-b border-[rgba(0,0,0,0.15)] py-2">
-      <div className={cn("h-[44px] flex items-center", isCollapsed ? "px-1 justify-center" : "px-1")}>
-        <Button
-          variant="ghost"
+    <div className={cn(
+      "flex flex-1 flex-col gap-[4px] border-t border-b border-[rgba(0,0,0,0.15)] py-2",
+      isCollapsed ? "px-[4px]" : "px-3"
+    )}>
+      <Button
+        variant="ghost"
+        size={undefined}
+        className={cn(
+          "transition-colors font-normal hover:bg-[#e0e5ec] h-[36px]",
+          isCollapsed ? "w-[36px] justify-center" : "w-full justify-start gap-2"
+        )}
+        style={{
+          paddingLeft: isCollapsed ? '4px' : '8px',
+          paddingRight: isCollapsed ? '4px' : '8px',
+          paddingTop: '0px',
+          paddingBottom: '0px'
+        }}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <ChevronRight
           className={cn(
-            "transition-colors p-1 font-normal hover:bg-[#e0e5ec]",
-            isCollapsed ? "h-[36px] w-[36px] justify-center" : "h-full w-full justify-start gap-2"
+            "h-4 w-4 shrink-0 transition-transform",
+            isCollapsed ? "" : "mr-2",
+            isExpanded ? 'rotate-90' : ''
           )}
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <ChevronRight
-            className={`h-4 w-4 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-          />
-          {!isCollapsed && (
-            <span className="text-xs uppercase text-muted-foreground">
-              Pins
-            </span>
-          )}
-        </Button>
-      </div>
+        />
+        {!isCollapsed && (
+          <span className="text-xs uppercase text-muted-foreground">
+            Pins
+          </span>
+        )}
+      </Button>
       {isExpanded && (
-        <div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
+        <div className="flex max-h-64 flex-col gap-[4px] overflow-y-auto">
           {pinnedItems.length === 0 ? (
             <div className="px-2 py-4 text-center text-xs text-muted-foreground">
               {!isCollapsed && 'No pinned items'}
             </div>
           ) : (
             pinnedItems.map((item) => (
-              <div key={item.id} className={cn("h-[44px] flex items-center", isCollapsed ? "px-1 justify-center" : "px-1")}>
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "group gap-px rounded-[4px] transition-colors p-1 font-normal hover:bg-[#e0e5ec]",
-                    isCollapsed 
-                      ? "h-[36px] w-[36px] justify-center" 
-                      : "h-full w-full justify-start"
-                  )}
-                  onClick={() => handlePinClick(item)}
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-clip">
-                    <Pin className="h-4 w-4 shrink-0 text-[rgba(109,109,109,1)] group-hover:text-[rgba(64,64,64,1)]" />
-                  </div>
-                  {!isCollapsed && (
-                    <span className="truncate text-sm leading-4 text-[#404040]">{item.name}</span>
-                  )}
-                </Button>
-              </div>
+              <Button
+                key={item.id}
+                variant="ghost"
+                size={undefined}
+                className={cn(
+                  "group gap-px rounded-[4px] transition-colors font-normal hover:bg-[#e0e5ec] h-[36px]",
+                  isCollapsed 
+                    ? "w-[36px] justify-center" 
+                    : "w-full justify-start"
+                )}
+                style={{
+                  paddingLeft: isCollapsed ? '4px' : '8px',
+                  paddingRight: isCollapsed ? '4px' : '8px',
+                  paddingTop: '0px',
+                  paddingBottom: '0px'
+                }}
+                onClick={() => handlePinClick(item)}
+              >
+                {getIconForType(item.type, isCollapsed)}
+                {!isCollapsed && (
+                  <span className="truncate text-sm leading-4 text-[#404040]">{item.name}</span>
+                )}
+              </Button>
             ))
           )}
         </div>

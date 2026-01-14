@@ -54,7 +54,7 @@ function SortableTabItem({ tab, isActive }: SortableTabItemProps) {
 }
 
 export default function TabsRegion() {
-  const { tabs, activeTabId, openTab, reorderTabs } = useTabStore()
+  const { tabs, activeTabId, openPageTab, reorderTabs } = useTabStore()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -124,13 +124,7 @@ export default function TabsRegion() {
   }
 
   const handleNewTab = () => {
-    // Placeholder: Open new tab dialog
-    const newAsset = {
-      id: `new-${Date.now()}`,
-      name: 'New Tab',
-      type: 'workspace' as const,
-    }
-    openTab(newAsset)
+    openPageTab('asset-type-selector', 'Create New', 'Plus')
   }
 
   return (

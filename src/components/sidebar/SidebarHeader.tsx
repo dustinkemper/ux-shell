@@ -24,7 +24,7 @@ export default function SidebarHeader() {
 
   return (
     <div className={cn(
-      "flex h-11 items-center border-b border-[rgba(0,0,0,0.15)]",
+      "flex h-11 items-center border-b border-[rgba(0,0,0,0.15)] bg-[#dfe5e6]",
       isCollapsed ? "justify-center" : "gap-1 px-2"
     )}>
       <Button
@@ -41,11 +41,9 @@ export default function SidebarHeader() {
       </Button>
       {!isCollapsed && (
         <>
-          <div className="flex flex-1 items-center justify-center">
-            <span className="text-sm font-medium text-foreground">
-              &lt;Tenant name&gt;
-            </span>
-          </div>
+          <span className="flex flex-1 items-center justify-start text-sm font-medium text-foreground">
+            &lt;Tenant name&gt;
+          </span>
           <Button
             variant="ghost"
             size="icon"

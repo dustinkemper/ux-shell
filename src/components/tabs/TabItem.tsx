@@ -7,8 +7,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useTabStore } from '@/stores/tabStore'
+import { useCatalogStore } from '@/stores/catalogStore'
 import type { Tab } from '@/types'
 import { cn } from '@/lib/utils'
+import { getAssetIcon, getPageIcon, getIconByName } from '@/lib/iconUtils'
 import { useState } from 'react'
 
 interface TabItemProps {
@@ -18,9 +20,40 @@ interface TabItemProps {
 
 export default function TabItem({ tab, isActive }: TabItemProps) {
   const { closeTab, setActiveTab } = useTabStore()
+  const { getAsset } = useCatalogStore()
   const [isHovered, setIsHovered] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+
+  // Get the appropriate icon component
+  const getIconComponent = () => {
+    if (tab.id === 'home') {
+      return Home
+    }
+    
+    // For page tabs, use page type icon
+    if (tab.pageType) {
+      return getPageIcon(tab.pageType)
+    }
+    
+    // For asset tabs, get icon from asset type
+    if (tab.assetId) {
+      const asset = getAsset(tab.assetId)
+      if (asset) {
+        return getAssetIcon(asset.type)
+      }
+    }
+    
+    // Fallback: try to use icon name if provided
+    if (tab.icon) {
+      return getIconByName(tab.icon)
+    }
+    
+    // Default fallback
+    return File
+  }
+
+  const IconComponent = getIconComponent()
 
   // Determine the current state
   const state = tab.state || (isHovered ? 'hover' : 'default')
@@ -100,31 +133,16 @@ export default function TabItem({ tab, isActive }: TabItemProps) {
       >
         {/* Icon */}
         <div className="flex shrink-0 items-center justify-center overflow-clip rounded-[4px] p-[8px]">
-          {tab.icon ? (
-            <span className="text-xs" style={{ fontSize: '20px', lineHeight: '20px' }}>{tab.icon}</span>
-          ) : tab.id === 'home' ? (
-            <Home 
-              className="h-5 w-5" 
-              style={{ 
-                width: '20px',
-                height: '20px',
-                color: isActive || state === 'hover' || state === 'focus' || isEditState 
-                  ? textPrimary 
-                  : textSecondary 
-              }} 
-            />
-          ) : (
-            <File 
-              className="h-5 w-5" 
-              style={{ 
-                width: '20px',
-                height: '20px',
-                color: isActive || state === 'hover' || state === 'focus' || isEditState 
-                  ? textPrimary 
-                  : textSecondary 
-              }} 
-            />
-          )}
+          <IconComponent 
+            className="h-5 w-5" 
+            style={{ 
+              width: '20px',
+              height: '20px',
+              color: isActive || state === 'hover' || state === 'focus' || isEditState 
+                ? textPrimary 
+                : textSecondary 
+            }} 
+          />
         </div>
 
         {/* Label - with edit state background */}

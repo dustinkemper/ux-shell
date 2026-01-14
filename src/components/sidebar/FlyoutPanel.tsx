@@ -324,7 +324,7 @@ function SectionHeader({ title, isExpanded, onToggle }: SectionHeaderProps) {
 
 export default function FlyoutPanel() {
   const { flyoutType, closeFlyout } = useSidebarStore()
-  const { openTab } = useTabStore()
+  const { openTab, openPageTab } = useTabStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<string>('all')
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -614,6 +614,10 @@ export default function FlyoutPanel() {
           <div className="flex flex-col items-start p-0">
             <div className="flex w-full items-start">
               <Button
+                onClick={() => {
+                  openPageTab('catalog', 'Catalog', 'Library')
+                  closeFlyout()
+                }}
                 className="h-9 w-full gap-2 rounded-[8px] bg-[#328be5] px-2 py-2 text-sm font-semibold text-white hover:bg-[#328be5]/90"
               >
                 Open catalog

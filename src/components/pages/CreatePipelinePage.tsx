@@ -1,0 +1,510 @@
+import { useState, useMemo } from 'react'
+import { ArrowLeft, ArrowRight, CheckCircle2, Database, Table2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { useTabStore } from '@/stores/tabStore'
+import { useCatalogStore } from '@/stores/catalogStore'
+import { useSidebarStore } from '@/stores/sidebarStore'
+import type { Asset, Table as TableType, PipelineMetadata } from '@/types'
+
+type Step = 1 | 2 | 3
+
+// Mock table data
+const generateMockTables = (connectionId: string): TableType[] => {
+  return [
+    {
+      id: `${connectionId}-table-1`,
+      name: 'users',
+      datatype: 'PostgreSQL',
+      isPrimaryKey: true,
+      rowCount: 15420,
+      schema: 'public',
+    },
+    {
+      id: `${connectionId}-table-2`,
+      name: 'orders',
+      datatype: 'PostgreSQL',
+      isForeignKey: true,
+      rowCount: 89340,
+      schema: 'public',
+    },
+    {
+      id: `${connectionId}-table-3`,
+      name: 'products',
+      datatype: 'PostgreSQL',
+      rowCount: 2340,
+      schema: 'public',
+    },
+    {
+      id: `${connectionId}-table-4`,
+      name: 'categories',
+      datatype: 'PostgreSQL',
+      rowCount: 45,
+      schema: 'public',
+    },
+    {
+      id: `${connectionId}-table-5`,
+      name: 'payments',
+      datatype: 'PostgreSQL',
+      isForeignKey: true,
+      rowCount: 125670,
+      schema: 'public',
+    },
+  ]
+}
+
+export default function CreatePipelinePage() {
+  const { closeTab, activeTabId } = useTabStore()
+  const { addAsset, getConnections } = useCatalogStore()
+  const { pinItem } = useSidebarStore()
+  const [currentStep, setCurrentStep] = useState<Step>(1)
+  
+  // Step 1 data
+  const [sourceConnectionId, setSourceConnectionId] = useState<string>('')
+  const [destinationConnectionId, setDestinationConnectionId] = useState<string>('')
+  const [pipelineName, setPipelineName] = useState('')
+  const [description, setDescription] = useState('')
+  const [workspace, setWorkspace] = useState('')
+  
+  // Step 2 data
+  const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(new Set())
+  
+  const connections = getConnections()
+  const databaseConnections = connections.filter(
+    (conn) => conn.connectionMetadata?.connectionType === 'database'
+  )
+  const destinationConnections = connections.filter(
+    (conn) => conn.id !== sourceConnectionId && 
+    (conn.connectionMetadata?.connectionType === 'database' || 
+     conn.connectionMetadata?.connectionType === 'data-warehouse' ||
+     conn.connectionMetadata?.connectionType === 'lakehouse')
+  )
+
+  const sourceConnection = connections.find((c) => c.id === sourceConnectionId)
+  const destinationConnection = connections.find((c) => c.id === destinationConnectionId)
+  const tables = useMemo(() => {
+    if (!sourceConnectionId) return []
+    return generateMockTables(sourceConnectionId)
+  }, [sourceConnectionId])
+
+  // Auto-generate pipeline name when source and destination are selected
+  useMemo(() => {
+    if (sourceConnection && destinationConnection && !pipelineName) {
+      const sourceName = sourceConnection.name || 'Source'
+      const destName = destinationConnection.name || 'Destination'
+      setPipelineName(`${sourceName} to ${destName} pipeline`)
+    }
+  }, [sourceConnection, destinationConnection, pipelineName])
+
+  const validateStep1 = (): boolean => {
+    return !!(sourceConnectionId && destinationConnectionId && pipelineName.trim())
+  }
+
+  const validateStep2 = (): boolean => {
+    return selectedTableIds.size > 0
+  }
+
+  const handleNext = () => {
+    if (currentStep === 1) {
+      if (!validateStep1()) {
+        alert('Please fill in all required fields')
+        return
+      }
+      setCurrentStep(2)
+    } else if (currentStep === 2) {
+      if (!validateStep2()) {
+        alert('Please select at least one table')
+        return
+      }
+      setCurrentStep(3)
+    }
+  }
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep((currentStep - 1) as Step)
+    }
+  }
+
+  const handleCreate = () => {
+    if (!validateStep1() || !validateStep2()) {
+      alert('Please complete all required fields')
+      return
+    }
+
+    const pipelineMetadata: PipelineMetadata = {
+      sourceConnectionId,
+      destinationConnectionId,
+      selectedTableIds: Array.from(selectedTableIds),
+      description,
+      workspace,
+    }
+
+    const newPipeline: Asset = {
+      id: `pipeline-${Date.now()}`,
+      name: pipelineName,
+      type: 'pipeline',
+      pipelineMetadata,
+      owner: 'Ron Swanson',
+      modified: new Date(),
+      quality: 82,
+    }
+
+    addAsset(newPipeline)
+
+    // Option to pin
+    const shouldPin = window.confirm('Would you like to pin this pipeline to the sidebar?')
+    if (shouldPin) {
+      pinItem(newPipeline)
+    }
+
+    // Close the tab
+    if (activeTabId) {
+      closeTab(activeTabId)
+    }
+  }
+
+  const toggleTableSelection = (tableId: string) => {
+    setSelectedTableIds((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(tableId)) {
+        newSet.delete(tableId)
+      } else {
+        newSet.add(tableId)
+      }
+      return newSet
+    })
+  }
+
+  return (
+    <div className="flex h-full flex-col bg-white">
+      <div className="border-b border-border px-6 py-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => activeTabId && closeTab(activeTabId)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Cancel
+          </Button>
+          <h1 className="text-2xl font-semibold">Create Data Pipeline</h1>
+        </div>
+        
+        {/* Progress indicator */}
+        <div className="mt-4 flex items-center gap-2">
+          {[1, 2, 3].map((step) => (
+            <div key={step} className="flex items-center">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                  currentStep >= step
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                {currentStep > step ? <CheckCircle2 className="h-4 w-4" /> : step}
+              </div>
+              {step < 3 && (
+                <div
+                  className={`h-1 w-16 ${
+                    currentStep > step ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto p-6">
+        <div className="mx-auto max-w-3xl">
+          {/* Step 1: Source & Destination Connections & Settings */}
+          {currentStep === 1 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="mb-4 text-xl font-semibold">Source & Destination</h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Source Connection <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={sourceConnectionId}
+                      onChange={(e) => {
+                        setSourceConnectionId(e.target.value)
+                        setPipelineName('') // Reset name to regenerate
+                      }}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">Select source connection</option>
+                      {databaseConnections.map((conn) => (
+                        <option key={conn.id} value={conn.id}>
+                          {conn.name} ({conn.connectionMetadata?.connectionType})
+                        </option>
+                      ))}
+                    </select>
+                    {databaseConnections.length === 0 && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        No database connections available. Please create a connection first.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Destination Connection <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={destinationConnectionId}
+                      onChange={(e) => {
+                        setDestinationConnectionId(e.target.value)
+                        setPipelineName('') // Reset name to regenerate
+                      }}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      disabled={!sourceConnectionId}
+                    >
+                      <option value="">Select destination connection</option>
+                      {destinationConnections.map((conn) => (
+                        <option key={conn.id} value={conn.id}>
+                          {conn.name} ({conn.connectionMetadata?.connectionType})
+                        </option>
+                      ))}
+                    </select>
+                    {destinationConnections.length === 0 && sourceConnectionId && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        No available destination connections. Please create a data warehouse or lakehouse connection.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h2 className="mb-4 text-xl font-semibold">Pipeline Settings</h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Pipeline Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={pipelineName}
+                      onChange={(e) => setPipelineName(e.target.value)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      placeholder="Pipeline name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Description</label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      placeholder="Optional description"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Workspace</label>
+                    <select
+                      value={workspace}
+                      onChange={(e) => setWorkspace(e.target.value)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">Select workspace</option>
+                      <option value="workspace1">Workspace 1</option>
+                      <option value="workspace2">Workspace 2</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Select Tables */}
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="mb-4 text-xl font-semibold">Select Tables</h2>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Select the tables you want to include in this pipeline from{' '}
+                  <strong>{sourceConnection?.name}</strong>
+                </p>
+
+                {tables.length > 0 ? (
+                  <div className="overflow-hidden rounded-lg border border-border">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12">
+                            <input
+                              type="checkbox"
+                              checked={selectedTableIds.size === tables.length}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedTableIds(new Set(tables.map((t) => t.id)))
+                                } else {
+                                  setSelectedTableIds(new Set())
+                                }
+                              }}
+                            />
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                            Table Name
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                            Datatype
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                            Keys
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                            Row Count
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                            Schema
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tables.map((table) => (
+                          <tr
+                            key={table.id}
+                            className="border-b border-border hover:bg-gray-50 cursor-pointer"
+                            onClick={() => toggleTableSelection(table.id)}
+                          >
+                            <td className="px-4 py-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedTableIds.has(table.id)}
+                                onChange={() => toggleTableSelection(table.id)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <Table2 className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium">{table.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-sm">{table.datatype || '-'}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-2">
+                                {table.isPrimaryKey && (
+                                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                    PK
+                                  </span>
+                                )}
+                                {table.isForeignKey && (
+                                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                    FK
+                                  </span>
+                                )}
+                                {!table.isPrimaryKey && !table.isForeignKey && (
+                                  <span className="text-sm text-muted-foreground">-</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-sm">
+                                {table.rowCount?.toLocaleString() || '-'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-sm">{table.schema || '-'}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-border p-8 text-center">
+                    <Database className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <p className="mt-4 text-sm text-muted-foreground">
+                      Please select a source connection first
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Review and Create */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="mb-4 text-xl font-semibold">Review Pipeline</h2>
+                
+                <div className="space-y-6 rounded-lg border border-border p-6">
+                  <div>
+                    <h3 className="mb-2 text-sm font-medium text-muted-foreground">Pipeline Name</h3>
+                    <p className="text-base">{pipelineName}</p>
+                  </div>
+
+                  {description && (
+                    <div>
+                      <h3 className="mb-2 text-sm font-medium text-muted-foreground">Description</h3>
+                      <p className="text-base">{description}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <h3 className="mb-2 text-sm font-medium text-muted-foreground">Source Connection</h3>
+                    <p className="text-base">{sourceConnection?.name || '-'}</p>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-2 text-sm font-medium text-muted-foreground">Destination Connection</h3>
+                    <p className="text-base">{destinationConnection?.name || '-'}</p>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-2 text-sm font-medium text-muted-foreground">
+                      Selected Tables ({selectedTableIds.size})
+                    </h3>
+                    <ul className="list-disc list-inside space-y-1">
+                      {Array.from(selectedTableIds).map((tableId) => {
+                        const table = tables.find((t) => t.id === tableId)
+                        return table ? <li key={tableId} className="text-sm">{table.name}</li> : null
+                      })}
+                    </ul>
+                  </div>
+
+                  {workspace && (
+                    <div>
+                      <h3 className="mb-2 text-sm font-medium text-muted-foreground">Workspace</h3>
+                      <p className="text-base">{workspace}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Navigation buttons */}
+      <div className="border-t border-border px-6 py-4">
+        <div className="mx-auto flex max-w-3xl justify-between">
+          <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <div className="flex gap-4">
+            {currentStep < 3 ? (
+              <Button onClick={handleNext}>
+                Next
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            ) : (
+              <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700">
+                Create Pipeline
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
