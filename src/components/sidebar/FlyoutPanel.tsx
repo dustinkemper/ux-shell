@@ -25,41 +25,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useSidebarStore } from '@/stores/sidebarStore'
 import { useTabStore } from '@/stores/tabStore'
+import { useCatalogStore } from '@/stores/catalogStore'
 import type { Asset, AssetType, FlyoutType } from '@/types'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
-
-// Mock data for different flyout types
-const getCatalogData = (): Asset[] => [
-  {
-    id: 'ws1',
-    name: 'Workspace 1',
-    type: 'workspace',
-    children: [
-      {
-        id: 'folder1',
-        name: 'Folder 1',
-        type: 'folder',
-        parentId: 'ws1',
-        children: [
-          { id: 'app1', name: 'Analytics App 1', type: 'analytics-app', parentId: 'folder1' },
-          { id: 'pipeline1', name: 'Data Pipeline 1', type: 'pipeline', parentId: 'folder1' },
-        ],
-      },
-      { id: 'app2', name: 'Analytics App 2', type: 'analytics-app', parentId: 'ws1' },
-    ],
-  },
-  {
-    id: 'ws2',
-    name: 'Workspace 2',
-    type: 'workspace',
-    children: [
-      { id: 'kb1', name: 'Knowledge Base 1', type: 'knowledge-base', parentId: 'ws2' },
-    ],
-  },
-]
-
-const getWorkspacesData = (): Asset[] => getCatalogData()
 
 // Tools panel data organized by sections
 const getToolsData = () => {
@@ -325,6 +294,7 @@ function SectionHeader({ title, isExpanded, onToggle }: SectionHeaderProps) {
 export default function FlyoutPanel() {
   const { flyoutType, closeFlyout } = useSidebarStore()
   const { openTab, openPageTab } = useTabStore()
+  const { getHierarchicalAssets } = useCatalogStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<string>('all')
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -338,12 +308,28 @@ export default function FlyoutPanel() {
 
   if (!flyoutType) return null
 
+  const filterTree = (items: Asset[], query: string): Asset[] => {
+    const loweredQuery = query.toLowerCase()
+    const result: Asset[] = []
+    for (const item of items) {
+      const matches = item.name.toLowerCase().includes(loweredQuery)
+      const children = item.children ? filterTree(item.children, query) : []
+      if (matches || children.length > 0) {
+        result.push({
+          ...item,
+          children: children.length > 0 ? children : item.children,
+        })
+      }
+    }
+    return result
+  }
+
   const getData = () => {
     switch (flyoutType) {
       case 'catalog':
-        return getCatalogData()
+        return getHierarchicalAssets()
       case 'workspaces':
-        return getWorkspacesData()
+        return getHierarchicalAssets()
       case 'more':
         return getMoreData()
       default:
@@ -384,11 +370,7 @@ export default function FlyoutPanel() {
     }
   }
 
-  const filteredData = searchQuery
-    ? data.filter((item) =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : data
+  const filteredData = searchQuery ? filterTree(data, searchQuery) : data
 
   return (
     <div className="flex h-full w-80 flex-col border-r border-[rgba(0,0,0,0.15)] bg-white">

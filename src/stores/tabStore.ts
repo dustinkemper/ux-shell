@@ -50,8 +50,11 @@ export const useTabStore = create<TabStore>((set, get) => ({
       set({ activeTabId: existingTab.id })
       return
     }
+    const baseId = `page-${pageType}`
+    const idInUse = tabs.some((t) => t.id === baseId)
+    const newTabId = idInUse ? `${baseId}-${Date.now()}` : baseId
     const newTab: Tab = {
-      id: `page-${pageType}`,
+      id: newTabId,
       label,
       pageType,
       icon,
