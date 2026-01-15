@@ -4,6 +4,7 @@ import CatalogPage from './pages/CatalogPage'
 import AssetTypeSelectorPage from './pages/AssetTypeSelectorPage'
 import CreatePipelinePage from './pages/CreatePipelinePage'
 import ConnectionDetailPage from './pages/ConnectionDetailPage'
+import PipelineDetailPage from './pages/PipelineDetailPage'
 
 export default function ContentArea() {
   const { tabs, activeTabId } = useTabStore()
@@ -46,6 +47,9 @@ export default function ContentArea() {
     const asset = getAsset(activeTab.assetId)
     if (asset?.type === 'connection') {
       return <ConnectionDetailPage connection={asset} />
+    }
+    if (asset?.type === 'pipeline') {
+      return <PipelineDetailPage pipeline={asset} />
     }
   }
 

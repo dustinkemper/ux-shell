@@ -3,7 +3,6 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Database, Table2 } from 'lucide-re
 import { Button } from '@/components/ui/button'
 import { useTabStore } from '@/stores/tabStore'
 import { useCatalogStore } from '@/stores/catalogStore'
-import { useSidebarStore } from '@/stores/sidebarStore'
 import type { Asset, Table as TableType, PipelineMetadata } from '@/types'
 
 type Step = 1 | 2 | 3
@@ -15,7 +14,7 @@ const generateMockTables = (connectionId: string): TableType[] => {
       id: `${connectionId}-table-1`,
       name: 'users',
       datatype: 'PostgreSQL',
-      isPrimaryKey: true,
+      primaryKeyColumns: ['id'],
       rowCount: 15420,
       schema: 'public',
     },
@@ -23,7 +22,8 @@ const generateMockTables = (connectionId: string): TableType[] => {
       id: `${connectionId}-table-2`,
       name: 'orders',
       datatype: 'PostgreSQL',
-      isForeignKey: true,
+      primaryKeyColumns: ['id'],
+      foreignKeyColumns: ['user_id'],
       rowCount: 89340,
       schema: 'public',
     },
@@ -45,7 +45,7 @@ const generateMockTables = (connectionId: string): TableType[] => {
       id: `${connectionId}-table-5`,
       name: 'payments',
       datatype: 'PostgreSQL',
-      isForeignKey: true,
+      foreignKeyColumns: ['order_id', 'user_id'],
       rowCount: 125670,
       schema: 'public',
     },
@@ -53,9 +53,8 @@ const generateMockTables = (connectionId: string): TableType[] => {
 }
 
 export default function CreatePipelinePage() {
-  const { closeTab, activeTabId } = useTabStore()
-  const { addAsset, getConnections } = useCatalogStore()
-  const { pinItem } = useSidebarStore()
+  const { closeTab, activeTabId, setTabAsset } = useTabStore()
+  const { addAsset, getConnections, getAsset } = useCatalogStore()
   const [currentStep, setCurrentStep] = useState<Step>(1)
   
   // Step 1 data
@@ -64,23 +63,33 @@ export default function CreatePipelinePage() {
   const [pipelineName, setPipelineName] = useState('')
   const [description, setDescription] = useState('')
   const [workspace, setWorkspace] = useState('')
+  const [hasCustomName, setHasCustomName] = useState(false)
   
   // Step 2 data
   const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(new Set())
   
   const connections = getConnections()
-  const databaseConnections = connections.filter(
-    (conn) => conn.connectionMetadata?.connectionType === 'database'
-  )
-  const destinationConnections = connections.filter(
-    (conn) => conn.id !== sourceConnectionId && 
-    (conn.connectionMetadata?.connectionType === 'database' || 
-     conn.connectionMetadata?.connectionType === 'data-warehouse' ||
-     conn.connectionMetadata?.connectionType === 'lakehouse')
+  const getWorkspaceIdForConnection = (connection: Asset): string | undefined => {
+    let currentParentId = connection.parentId
+    while (currentParentId) {
+      const parent = getAsset(currentParentId)
+      if (!parent) return undefined
+      if (parent.type === 'workspace') return parent.id
+      currentParentId = parent.parentId
+    }
+    return undefined
+  }
+  const workspaceConnections = useMemo(() => {
+    if (!workspace) return []
+    return connections.filter((conn) => getWorkspaceIdForConnection(conn) === workspace)
+  }, [connections, workspace])
+  const destinationConnections = workspaceConnections.filter(
+    (conn) => conn.id !== sourceConnectionId
   )
 
   const sourceConnection = connections.find((c) => c.id === sourceConnectionId)
   const destinationConnection = connections.find((c) => c.id === destinationConnectionId)
+  const workspaceAsset = workspace ? getAsset(workspace) : undefined
   const tables = useMemo(() => {
     if (!sourceConnectionId) return []
     return generateMockTables(sourceConnectionId)
@@ -88,15 +97,15 @@ export default function CreatePipelinePage() {
 
   // Auto-generate pipeline name when source and destination are selected
   useMemo(() => {
-    if (sourceConnection && destinationConnection && !pipelineName) {
+    if (sourceConnection && destinationConnection && !hasCustomName && !pipelineName) {
       const sourceName = sourceConnection.name || 'Source'
       const destName = destinationConnection.name || 'Destination'
       setPipelineName(`${sourceName} to ${destName} pipeline`)
     }
-  }, [sourceConnection, destinationConnection, pipelineName])
+  }, [sourceConnection, destinationConnection, hasCustomName, pipelineName])
 
   const validateStep1 = (): boolean => {
-    return !!(sourceConnectionId && destinationConnectionId && pipelineName.trim())
+    return !!(workspace && sourceConnectionId && destinationConnectionId && pipelineName.trim())
   }
 
   const validateStep2 = (): boolean => {
@@ -143,6 +152,8 @@ export default function CreatePipelinePage() {
       id: `pipeline-${Date.now()}`,
       name: pipelineName,
       type: 'pipeline',
+      description,
+      parentId: workspace || 'ws1',
       pipelineMetadata,
       owner: 'Ron Swanson',
       modified: new Date(),
@@ -151,15 +162,8 @@ export default function CreatePipelinePage() {
 
     addAsset(newPipeline)
 
-    // Option to pin
-    const shouldPin = window.confirm('Would you like to pin this pipeline to the sidebar?')
-    if (shouldPin) {
-      pinItem(newPipeline)
-    }
-
-    // Close the tab
     if (activeTabId) {
-      closeTab(activeTabId)
+      setTabAsset(activeTabId, newPipeline)
     }
   }
 
@@ -216,10 +220,34 @@ export default function CreatePipelinePage() {
           {/* Step 1: Source & Destination Connections & Settings */}
           {currentStep === 1 && (
             <div className="space-y-6">
-              <div>
-                <h2 className="mb-4 text-xl font-semibold">Source & Destination</h2>
-                
-                <div className="space-y-4">
+              <div className="rounded-lg border border-border p-6">
+                <h2 className="text-lg font-semibold">Workspace</h2>
+                <div className="mt-4">
+                  <label className="mb-2 block text-sm font-medium">
+                    Workspace <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={workspace}
+                    onChange={(e) => {
+                      setWorkspace(e.target.value)
+                      setSourceConnectionId('')
+                      setDestinationConnectionId('')
+                      setSelectedTableIds(new Set())
+                      setPipelineName('')
+                      setHasCustomName(false)
+                    }}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Select workspace</option>
+                    <option value="ws1">Workspace 1</option>
+                    <option value="ws2">Workspace 2</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border p-6">
+                <h2 className="text-lg font-semibold">Connections</h2>
+                <div className="mt-4 space-y-4">
                   <div>
                     <label className="mb-2 block text-sm font-medium">
                       Source Connection <span className="text-red-500">*</span>
@@ -228,21 +256,24 @@ export default function CreatePipelinePage() {
                       value={sourceConnectionId}
                       onChange={(e) => {
                         setSourceConnectionId(e.target.value)
-                        setPipelineName('') // Reset name to regenerate
+                        setPipelineName('')
+                        setSelectedTableIds(new Set())
+                        setHasCustomName(false)
                       }}
                       className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      disabled={!workspace || workspaceConnections.length === 0}
                     >
                       <option value="">Select source connection</option>
-                      {databaseConnections.map((conn) => (
+                      {workspaceConnections.map((conn) => (
                         <option key={conn.id} value={conn.id}>
                           {conn.name} ({conn.connectionMetadata?.connectionType})
                         </option>
                       ))}
                     </select>
-                    {databaseConnections.length === 0 && (
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        No database connections available. Please create a connection first.
-                      </p>
+                    {workspace && workspaceConnections.length === 0 && (
+                      <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        No connections in this workspace yet. Create a connection to continue.
+                      </div>
                     )}
                   </div>
 
@@ -254,10 +285,11 @@ export default function CreatePipelinePage() {
                       value={destinationConnectionId}
                       onChange={(e) => {
                         setDestinationConnectionId(e.target.value)
-                        setPipelineName('') // Reset name to regenerate
+                        setPipelineName('')
+                        setHasCustomName(false)
                       }}
                       className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      disabled={!sourceConnectionId}
+                      disabled={!sourceConnectionId || workspaceConnections.length === 0}
                     >
                       <option value="">Select destination connection</option>
                       {destinationConnections.map((conn) => (
@@ -266,19 +298,18 @@ export default function CreatePipelinePage() {
                         </option>
                       ))}
                     </select>
-                    {destinationConnections.length === 0 && sourceConnectionId && (
+                    {sourceConnectionId && destinationConnections.length === 0 && (
                       <p className="mt-2 text-sm text-muted-foreground">
-                        No available destination connections. Please create a data warehouse or lakehouse connection.
+                        No available destination connections in this workspace.
                       </p>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div>
-                <h2 className="mb-4 text-xl font-semibold">Pipeline Settings</h2>
-                
-                <div className="space-y-4">
+              <div className="rounded-lg border border-border p-6">
+                <h2 className="text-lg font-semibold">Name & Description</h2>
+                <div className="mt-4 space-y-4">
                   <div>
                     <label className="mb-2 block text-sm font-medium">
                       Pipeline Name <span className="text-red-500">*</span>
@@ -286,7 +317,10 @@ export default function CreatePipelinePage() {
                     <input
                       type="text"
                       value={pipelineName}
-                      onChange={(e) => setPipelineName(e.target.value)}
+                      onChange={(e) => {
+                        setPipelineName(e.target.value)
+                        setHasCustomName(true)
+                      }}
                       className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                       placeholder="Pipeline name"
                     />
@@ -300,19 +334,6 @@ export default function CreatePipelinePage() {
                       className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       placeholder="Optional description"
                     />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-medium">Workspace</label>
-                    <select
-                      value={workspace}
-                      onChange={(e) => setWorkspace(e.target.value)}
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      <option value="">Select workspace</option>
-                      <option value="workspace1">Workspace 1</option>
-                      <option value="workspace2">Workspace 2</option>
-                    </select>
                   </div>
                 </div>
               </div>
@@ -359,62 +380,52 @@ export default function CreatePipelinePage() {
                           <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                             Row Count
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                            Schema
-                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {tables.map((table) => (
-                          <tr
-                            key={table.id}
-                            className="border-b border-border hover:bg-gray-50 cursor-pointer"
-                            onClick={() => toggleTableSelection(table.id)}
-                          >
-                            <td className="px-4 py-3">
-                              <input
-                                type="checkbox"
-                                checked={selectedTableIds.has(table.id)}
-                                onChange={() => toggleTableSelection(table.id)}
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <Table2 className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm font-medium">{table.name}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="text-sm">{table.datatype || '-'}</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex gap-2">
-                                {table.isPrimaryKey && (
-                                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                                    PK
-                                  </span>
-                                )}
-                                {table.isForeignKey && (
-                                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                                    FK
-                                  </span>
-                                )}
-                                {!table.isPrimaryKey && !table.isForeignKey && (
+                        {tables.map((table) => {
+                          const keyColumns = [
+                            ...(table.primaryKeyColumns ?? []).map((column) => `${column} (PK)`),
+                            ...(table.foreignKeyColumns ?? []).map((column) => `${column} (FK)`),
+                          ]
+                          return (
+                            <tr
+                              key={table.id}
+                              className="border-b border-border hover:bg-gray-50 cursor-pointer"
+                              onClick={() => toggleTableSelection(table.id)}
+                            >
+                              <td className="px-4 py-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedTableIds.has(table.id)}
+                                  onChange={() => toggleTableSelection(table.id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <Table2 className="h-4 w-4 text-muted-foreground" />
+                                  <span className="text-sm font-medium">{table.name}</span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-sm">{table.datatype || '-'}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                {keyColumns.length > 0 ? (
+                                  <span className="text-sm">{keyColumns.join(', ')}</span>
+                                ) : (
                                   <span className="text-sm text-muted-foreground">-</span>
                                 )}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="text-sm">
-                                {table.rowCount?.toLocaleString() || '-'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="text-sm">{table.schema || '-'}</span>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-sm">
+                                  {table.rowCount?.toLocaleString() || '-'}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -437,6 +448,11 @@ export default function CreatePipelinePage() {
                 <h2 className="mb-4 text-xl font-semibold">Review Pipeline</h2>
                 
                 <div className="space-y-6 rounded-lg border border-border p-6">
+                  <div>
+                    <h3 className="mb-2 text-sm font-medium text-muted-foreground">Workspace</h3>
+                    <p className="text-base">{workspaceAsset?.name || workspace || '-'}</p>
+                  </div>
+
                   <div>
                     <h3 className="mb-2 text-sm font-medium text-muted-foreground">Pipeline Name</h3>
                     <p className="text-base">{pipelineName}</p>
@@ -471,12 +487,6 @@ export default function CreatePipelinePage() {
                     </ul>
                   </div>
 
-                  {workspace && (
-                    <div>
-                      <h3 className="mb-2 text-sm font-medium text-muted-foreground">Workspace</h3>
-                      <p className="text-base">{workspace}</p>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

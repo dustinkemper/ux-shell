@@ -71,8 +71,8 @@ export interface Table {
   id: string
   name: string
   datatype?: string
-  isPrimaryKey?: boolean
-  isForeignKey?: boolean
+  primaryKeyColumns?: string[]
+  foreignKeyColumns?: string[]
   rowCount?: number
   schema?: string
   otherMetadata?: Record<string, unknown>
