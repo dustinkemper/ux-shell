@@ -303,18 +303,28 @@ export default function CatalogPage() {
 
           <div className="flex gap-1 border border-border rounded-md p-1">
             <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
               onClick={() => setViewMode('list')}
-              className="h-7 w-7 p-0"
+              className={cn(
+                "h-7 w-7 p-0",
+                viewMode === 'list'
+                  ? "bg-[#eef5f7] text-[#18191a] hover:bg-[#e0e5ec]"
+                  : "text-[#5e656a] hover:bg-[#e0e5ec]"
+              )}
             >
               <List className="h-4 w-4" />
             </Button>
             <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
               onClick={() => setViewMode('grid')}
-              className="h-7 w-7 p-0"
+              className={cn(
+                "h-7 w-7 p-0",
+                viewMode === 'grid'
+                  ? "bg-[#eef5f7] text-[#18191a] hover:bg-[#e0e5ec]"
+                  : "text-[#5e656a] hover:bg-[#e0e5ec]"
+              )}
             >
               <LayoutGrid className="h-4 w-4" />
             </Button>
