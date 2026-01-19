@@ -6,14 +6,9 @@ import {
   Folder,
   X,
   Search,
-  LayoutGrid,
   Library,
   ChevronDown,
   ChevronUp,
-  FolderPlus,
-  RotateCw,
-  ArrowDownAZ,
-  Plus,
   Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -92,8 +87,6 @@ const getHeaderIcon = (flyoutType: FlyoutType) => {
   switch (flyoutType) {
     case 'catalog':
       return <Library className="h-4 w-4 text-[#18191a]" />
-    case 'workspaces':
-      return <LayoutGrid className="h-4 w-4 text-[#18191a]" />
     case 'more':
       return <Sparkles className="h-4 w-4 text-[#18191a]" />
     default:
@@ -105,8 +98,6 @@ const getHeaderTitle = (flyoutType: FlyoutType) => {
   switch (flyoutType) {
     case 'catalog':
       return 'Catalog'
-    case 'workspaces':
-      return 'Workspaces'
     case 'more':
       return 'Tools'
     default:
@@ -118,16 +109,94 @@ interface TreeItemProps {
   item: Asset
   level: number
   onItemClick: (item: Asset) => void
-  onPinClick: (item: Asset) => void
   selectedId?: string
+  ancestorLines?: boolean[]
+  isLast?: boolean
 }
 
-function TreeItem({ item, level, onItemClick, onPinClick, selectedId }: TreeItemProps) {
+function StemSvg({
+  level,
+  ancestorLines,
+  isLast,
+  hasChildren,
+}: {
+  level: number
+  ancestorLines: boolean[]
+  isLast: boolean
+  hasChildren: boolean
+}) {
+  if (level === 0) return null
+
+  const baseIndent = 8
+  const indentSize = 40
+  const caretWidth = 16
+  const iconWidth = 24
+  const rowHeight = 32
+  const midY = rowHeight / 2
+  const stemOffset = caretWidth + iconWidth / 2
+  const stemWidth = baseIndent + level * indentSize
+  const svgWidth = stemWidth + caretWidth + iconWidth
+  const parentLineX = baseIndent + (level - 1) * indentSize + stemOffset
+  const stroke = '#8d989c'
+  const snap = (value: number) => Math.round(value) + 0.5
+  const snappedTop = snap(0)
+  const snappedBottom = snap(rowHeight - 1)
+  const snappedMid = snap(midY)
+
+  return (
+    <svg
+      className="absolute left-0 top-0 pointer-events-none"
+      width={svgWidth}
+      height={rowHeight}
+      viewBox={`0 0 ${svgWidth} ${rowHeight}`}
+      fill="none"
+      shapeRendering="crispEdges"
+    >
+      {ancestorLines.map((drawLine, index) =>
+        drawLine ? (
+          <line
+            key={`ancestor-${index}`}
+            x1={snap(baseIndent + index * indentSize + stemOffset)}
+            y1={snappedTop}
+            x2={snap(baseIndent + index * indentSize + stemOffset)}
+            y2={snappedBottom}
+            stroke={stroke}
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : null
+      )}
+      <line
+        x1={snap(parentLineX)}
+        y1={snappedTop}
+        x2={snap(parentLineX)}
+        y2={isLast ? snappedMid : snappedBottom}
+        stroke={stroke}
+        strokeWidth={1}
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  )
+}
+
+function TreeItem({
+  item,
+  level,
+  onItemClick,
+  selectedId,
+  ancestorLines = [],
+  isLast = false,
+}: TreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const { pinnedItems, pinItem, unpinItem } = useSidebarStore()
   const isPinned = pinnedItems.some((p) => p.id === item.id)
   const hasChildren = item.children && item.children.length > 0
-  const isSelected = selectedId === item.id
+  const baseIndent = 8
+  const indentSize = 40
+  const caretWidth = 16
+  const iconWidth = 24
+  const stemWidth = baseIndent + level * indentSize
 
   const handlePin = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -146,60 +215,63 @@ function TreeItem({ item, level, onItemClick, onPinClick, selectedId }: TreeItem
     <div className="relative">
       <div
         className={cn(
-          'group flex h-8 items-center gap-2 rounded-[4px] px-2 py-1 transition-colors relative',
-          isSelected
-            ? 'bg-[#ebf1ff] border border-[#d6e7ff]'
-            : 'hover:bg-[#e0e5ec]'
+          'group grid h-8 items-center rounded-[4px] pr-2 transition-colors relative overflow-hidden hover:bg-[#e0e5ec]'
         )}
-        style={{ paddingLeft: level > 0 ? `${8 + level * 16}px` : '8px' }}
+        style={{
+          gridTemplateColumns: `${stemWidth}px ${caretWidth}px ${iconWidth}px 1fr auto`,
+        }}
       >
-        {level > 0 && (
-          <div
-            className="absolute left-[8px] top-0 bottom-0 w-px bg-[#c7cfd1]"
-            style={{ height: '32px' }}
-          />
-        )}
+        <StemSvg
+          level={level}
+          ancestorLines={ancestorLines}
+          isLast={isLast}
+          hasChildren={hasChildren}
+        />
+        <div className="relative z-10 h-full" />
         {hasChildren ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setIsExpanded(!isExpanded)
-            }}
-            className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] hover:bg-gray-200/50 transition-colors"
-          >
-            <ChevronRight
-              className={cn(
-                'h-4 w-4 text-[#18191a] transition-transform',
-                isExpanded && 'rotate-90'
-              )}
-            />
-          </button>
+          <div className="relative z-10 flex h-full items-center justify-center">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsExpanded(!isExpanded)
+              }}
+              className="flex h-4 w-4 items-center justify-center rounded-[4px] hover:bg-gray-200/50 transition-colors"
+            >
+              <ChevronRight
+                className={cn(
+                  'h-4 w-4 text-[#18191a] transition-transform',
+                  isExpanded && 'rotate-90'
+                )}
+              />
+            </button>
+          </div>
         ) : (
-          <div className="h-4 w-4 shrink-0" />
+          <div className="relative z-10 flex h-full items-center justify-center">
+            <div className="h-4 w-4" />
+          </div>
         )}
-        <div className="flex h-4 w-4 shrink-0 items-center justify-center">
+        <div className="relative z-10 flex h-full items-center justify-center">
           {getIconForType(item.type)}
         </div>
         <button
           onClick={handleClick}
-          className="flex min-w-0 flex-1 items-center overflow-hidden"
+          className="relative z-10 flex min-w-0 flex-1 items-center overflow-hidden"
         >
           <span
             className={cn(
-              'text-sm leading-4 whitespace-nowrap overflow-hidden text-ellipsis',
-              isSelected ? 'text-[#225a94] font-medium' : 'text-[#18191a]'
+              'text-sm leading-4 whitespace-nowrap overflow-hidden text-ellipsis text-[#18191a]'
             )}
           >
             {item.name}
           </span>
         </button>
-        <div className="ml-auto flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="relative z-10 ml-auto flex shrink-0 items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-[4px] p-1 hover:bg-gray-200/50"
+                className="h-7 w-7 rounded-[4px] p-1 hover:bg-gray-200/50 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4 text-[#5e656a]" />
@@ -215,27 +287,32 @@ function TreeItem({ item, level, onItemClick, onPinClick, selectedId }: TreeItem
             variant="ghost"
             size="icon"
             className={cn(
-              'h-8 w-8 rounded-[4px] p-1 hover:bg-gray-200/50',
-              isPinned && 'text-[#18191a]'
+              'h-7 w-7 rounded-[4px] p-1 hover:bg-gray-200/50',
+              isPinned ? 'text-[#18191a] opacity-100' : 'opacity-0 group-hover:opacity-100'
             )}
             onClick={handlePin}
+            aria-pressed={isPinned}
           >
             <Pin
-              className={cn('h-4 w-4 text-[#5e656a]', isPinned && 'fill-current')}
+              className={cn(
+                'h-4 w-4',
+                isPinned ? 'text-[#18191a] fill-current' : 'text-[#5e656a]'
+              )}
             />
           </Button>
         </div>
       </div>
       {isExpanded && hasChildren && (
-        <div>
-          {item.children!.map((child) => (
+        <div className="relative">
+          {item.children!.map((child, index) => (
             <TreeItem
               key={child.id}
               item={child}
               level={level + 1}
               onItemClick={onItemClick}
-              onPinClick={onPinClick}
               selectedId={selectedId}
+              ancestorLines={[...ancestorLines, !isLast]}
+              isLast={index === item.children!.length - 1}
             />
           ))}
         </div>
@@ -292,9 +369,9 @@ function SectionHeader({ title, isExpanded, onToggle }: SectionHeaderProps) {
 }
 
 export default function FlyoutPanel() {
-  const { flyoutType, closeFlyout } = useSidebarStore()
+  const { flyoutType, closeFlyout, pinnedItems } = useSidebarStore()
   const { openTab, openPageTab } = useTabStore()
-  const { getHierarchicalAssets } = useCatalogStore()
+  const { getHierarchicalAssets, assets } = useCatalogStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<string>('all')
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -324,11 +401,20 @@ export default function FlyoutPanel() {
     return result
   }
 
+  const flattenAssets = (assetList: Asset[]): Asset[] => {
+    const result: Asset[] = []
+    for (const asset of assetList) {
+      result.push(asset)
+      if (asset.children) {
+        result.push(...flattenAssets(asset.children))
+      }
+    }
+    return result
+  }
+
   const getData = () => {
     switch (flyoutType) {
       case 'catalog':
-        return getHierarchicalAssets()
-      case 'workspaces':
         return getHierarchicalAssets()
       case 'more':
         return getMoreData()
@@ -343,6 +429,35 @@ export default function FlyoutPanel() {
 
   const data = getData()
   const toolsData = flyoutType === 'more' ? getToolsDataBySection() : null
+  const pinnedIds = new Set(pinnedItems.map((item) => item.id))
+  const showFlatList = flyoutType === 'catalog' && selectedFilter !== 'all'
+
+  const getFlatAssets = () => {
+    let flattened = flattenAssets(assets).filter(
+      (asset) => asset.type !== 'workspace' && asset.type !== 'folder'
+    )
+
+    if (searchQuery) {
+      const loweredQuery = searchQuery.toLowerCase()
+      flattened = flattened.filter((asset) =>
+        asset.name.toLowerCase().includes(loweredQuery)
+      )
+    }
+
+    if (selectedFilter === 'recent') {
+      flattened = [...flattened].sort((a, b) => {
+        const dateA = a.modified?.getTime() ?? 0
+        const dateB = b.modified?.getTime() ?? 0
+        return dateB - dateA
+      })
+    }
+
+    if (selectedFilter === 'favorites') {
+      flattened = flattened.filter((asset) => pinnedIds.has(asset.id))
+    }
+
+    return flattened
+  }
 
   const handleItemClick = (item: Asset) => {
     setSelectedItemId(item.id)
@@ -362,7 +477,6 @@ export default function FlyoutPanel() {
     switch (flyoutType) {
       case 'more':
         return 'Search'
-      case 'workspaces':
       case 'catalog':
         return 'Search for files'
       default:
@@ -388,14 +502,6 @@ export default function FlyoutPanel() {
           variant="ghost"
           size="icon"
           className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-gray-200/50"
-          onClick={() => {}}
-        >
-          <MoreHorizontal className="h-4 w-4 text-[#18191a]" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-gray-200/50"
           onClick={closeFlyout}
         >
           <X className="h-4 w-4 text-[#18191a]" />
@@ -404,8 +510,23 @@ export default function FlyoutPanel() {
 
       {/* Content Area */}
       <div className="flex flex-1 flex-col gap-2 overflow-hidden p-3">
+        {flyoutType === 'catalog' && (
+          <div className="flex items-center justify-center">
+            <Button
+              variant="outline"
+              className="h-9 w-full gap-2 rounded-[8px] border-[#328be5] px-2 py-2 text-sm font-semibold text-[#328be5] hover:bg-[#e9f2ff]"
+              onClick={() => {
+                openPageTab('catalog', 'Catalog', 'Library')
+                closeFlyout()
+              }}
+            >
+              Open Catalog
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
         {/* Search Bar */}
-        <div className="flex gap-2">
+        <div className="flex">
           <div className="flex flex-1 items-center gap-2 rounded-[4px] bg-[#f7fafb] px-2 py-2">
             <Search className="h-4 w-4 shrink-0 text-[#18191a]" />
             <input
@@ -416,31 +537,6 @@ export default function FlyoutPanel() {
               className="flex-1 bg-transparent text-sm leading-5 text-[#18191a] placeholder:text-[#18191a] outline-none"
             />
           </div>
-          {(flyoutType === 'workspaces' || flyoutType === 'catalog') && (
-            <div className="flex items-center gap-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-gray-200/50"
-              >
-                <ArrowDownAZ className="h-4 w-4 text-[#5e656a]" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-gray-200/50"
-              >
-                <FolderPlus className="h-4 w-4 text-[#5e656a]" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-[4px] p-[10px] hover:bg-gray-200/50"
-              >
-                <RotateCw className="h-4 w-4 text-[#5e656a]" />
-              </Button>
-            </div>
-          )}
         </div>
 
         {/* Filter Buttons - Tools */}
@@ -507,6 +603,18 @@ export default function FlyoutPanel() {
                 variant="ghost"
                 className={cn(
                   'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
+                  selectedFilter === 'recent'
+                    ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
+                    : 'text-[#5e656a] hover:bg-white/50'
+                )}
+                onClick={() => setSelectedFilter('recent')}
+              >
+                Recent
+              </Button>
+              <Button
+                variant="ghost"
+                className={cn(
+                  'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
                   selectedFilter === 'favorites'
                     ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
                     : 'text-[#5e656a] hover:bg-white/50'
@@ -515,37 +623,12 @@ export default function FlyoutPanel() {
               >
                 Favorites
               </Button>
-              <Button
-                variant="ghost"
-                className={cn(
-                  'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
-                  selectedFilter === 'collections'
-                    ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
-                    : 'text-[#5e656a] hover:bg-white/50'
-                )}
-                onClick={() => setSelectedFilter('collections')}
-              >
-                Collections
-              </Button>
             </div>
           </div>
         )}
 
-        {/* Create New Button - Workspaces */}
-        {flyoutType === 'workspaces' && (
-          <div className="flex items-center justify-center">
-            <Button
-              variant="ghost"
-              className="h-9 w-full gap-2 rounded-[8px] bg-[#f7fafb] px-2 py-2 text-sm font-semibold text-[#5e656a] hover:bg-[#f7fafb]"
-            >
-              <Plus className="h-4 w-4" />
-              Create new
-            </Button>
-          </div>
-        )}
-
         {/* Divider */}
-        {(flyoutType === 'workspaces' || flyoutType === 'catalog' || flyoutType === 'more') && (
+        {(flyoutType === 'catalog' || flyoutType === 'more') && (
           <div className="flex flex-col items-start px-0 py-1">
             <div className="h-px w-full bg-[#c7cfd1]" />
           </div>
@@ -575,38 +658,37 @@ export default function FlyoutPanel() {
                 )
               })}
             </div>
-          ) : (
+          ) : showFlatList ? (
             <div className="flex flex-col gap-0">
-              {filteredData.map((item) => (
+              {getFlatAssets().map((item, index, list) => (
                 <TreeItem
                   key={item.id}
                   item={item}
                   level={0}
                   onItemClick={handleItemClick}
-                  onPinClick={() => {}}
                   selectedId={selectedItemId}
+                  ancestorLines={[]}
+                  isLast={index === list.length - 1}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-0">
+              {filteredData.map((item, index, list) => (
+                <TreeItem
+                  key={item.id}
+                  item={item}
+                  level={0}
+                  onItemClick={handleItemClick}
+                  selectedId={selectedItemId}
+                  ancestorLines={[]}
+                  isLast={index === list.length - 1}
                 />
               ))}
             </div>
           )}
         </div>
 
-        {/* Bottom Action Button - Catalog */}
-        {flyoutType === 'catalog' && (
-          <div className="flex flex-col items-start p-0">
-            <div className="flex w-full items-start">
-              <Button
-                onClick={() => {
-                  openPageTab('catalog', 'Catalog', 'Library')
-                  closeFlyout()
-                }}
-                className="h-9 w-full gap-2 rounded-[8px] bg-[#328be5] px-2 py-2 text-sm font-semibold text-white hover:bg-[#328be5]/90"
-              >
-                Open catalog
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

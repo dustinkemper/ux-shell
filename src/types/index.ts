@@ -99,7 +99,7 @@ export interface Tab {
 // Sidebar state
 export type SidebarState = 'expanded' | 'collapsed' | 'minimized'
 
-export type FlyoutType = 'catalog' | 'workspaces' | 'more' | null
+export type FlyoutType = 'catalog' | 'more' | null
 
 // Navigation state
 export interface NavigationState {
