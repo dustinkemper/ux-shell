@@ -356,12 +356,12 @@ function SectionHeader({ title, isExpanded, onToggle }: SectionHeaderProps) {
       </span>
       <button
         onClick={onToggle}
-        className="flex h-4 w-4 items-center justify-center rounded-[4px] p-1 hover:bg-gray-200/50 transition-colors"
+        className="flex h-6 w-6 items-center justify-center rounded-[4px] p-1 hover:bg-gray-200/50 transition-colors"
       >
         {isExpanded ? (
-          <ChevronUp className="h-4 w-4 text-[#18191a]" />
+          <ChevronUp className="h-5 w-5 text-[#18191a]" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-[#18191a]" />
+          <ChevronDown className="h-5 w-5 text-[#18191a]" />
         )}
       </button>
     </div>
