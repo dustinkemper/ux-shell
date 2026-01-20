@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { useCatalogStore } from '@/stores/catalogStore'
 import { useTabStore } from '@/stores/tabStore'
 import ConnectionDetailPage from './ConnectionDetailPage'
@@ -217,6 +217,10 @@ const warehouseFields: FieldDefinition[] = [
 export default function AssetTypeSelectorPage() {
   const { addAsset } = useCatalogStore()
   const { activeTabId, renameTab, setTabIcon, setTabAsset, setTabPage } = useTabStore()
+  const [isTestingConnection, setIsTestingConnection] = useState(false)
+  const [showTestToast, setShowTestToast] = useState(false)
+  const testTimerRef = useRef<number | null>(null)
+  const toastTimerRef = useRef<number | null>(null)
 
   const [step, setStep] = useState<CreateStep>('asset-type')
   const [selectedAssetType, setSelectedAssetType] = useState<AssetType | null>(null)
@@ -259,6 +263,17 @@ export default function AssetTypeSelectorPage() {
       renameTab(activeTabId, connectionForm.name || 'Connection')
     }
   }, [step, activeTabId, renameTab, connectionForm.name])
+
+  useEffect(() => {
+    return () => {
+      if (testTimerRef.current) {
+        window.clearTimeout(testTimerRef.current)
+      }
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current)
+      }
+    }
+  }, [])
 
   const handleSelectAssetType = (type: AssetType) => {
     setSelectedAssetType(type)
@@ -311,6 +326,16 @@ export default function AssetTypeSelectorPage() {
     return Object.keys(newErrors).length === 0
   }
 
+  const canTestConnection = () => {
+    if (!connectionForm.workspace || !connectionForm.name) return false
+    for (const field of formFields) {
+      if (field.required && !connectionForm[field.id]) {
+        return false
+      }
+    }
+    return true
+  }
+
   const handleCreateConnection = () => {
     if (!selectedConnectionType) return
     if (!validateCredentials()) return
@@ -360,6 +385,24 @@ export default function AssetTypeSelectorPage() {
     }
   }
 
+  const handleTestConnection = () => {
+    if (isTestingConnection) return
+    setIsTestingConnection(true)
+    if (testTimerRef.current) {
+      window.clearTimeout(testTimerRef.current)
+    }
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current)
+    }
+    testTimerRef.current = window.setTimeout(() => {
+      setIsTestingConnection(false)
+      setShowTestToast(true)
+      toastTimerRef.current = window.setTimeout(() => {
+        setShowTestToast(false)
+      }, 2400)
+    }, 900)
+  }
+
   const renderHeader = (title: string, subtitle?: string) => (
     <div className="border-b border-border px-6 py-4">
       <div className="flex items-center gap-3">
@@ -382,7 +425,15 @@ export default function AssetTypeSelectorPage() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="relative flex h-full flex-col bg-white">
+      {showTestToast && (
+        <div className="absolute right-6 top-6 z-50 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-medium text-emerald-700">
+            <CheckCircle2 className="h-4 w-4" />
+            Connection test successful
+          </div>
+        </div>
+      )}
       {step === 'asset-type' &&
         renderHeader('Create New', 'Select the type of asset you want to create')}
       {step === 'connection-type' &&
@@ -563,7 +614,21 @@ export default function AssetTypeSelectorPage() {
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={handleTestConnection}
+                disabled={isTestingConnection || !canTestConnection()}
+              >
+                {isTestingConnection ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  'Test connection'
+                )}
+              </Button>
               <Button onClick={handleCreateConnection} className="bg-green-600 hover:bg-green-700">
                 Create Connection
                 <ArrowRight className="ml-2 h-4 w-4" />

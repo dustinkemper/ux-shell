@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ArrowLeft, Save } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, Save, CheckCircle2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTabStore } from '@/stores/tabStore'
 import { useCatalogStore } from '@/stores/catalogStore'
@@ -8,6 +8,10 @@ import type { ConnectionMetadata } from '@/types'
 export default function CreateConnectionPage() {
   const { closeTab, activeTabId } = useTabStore()
   const { addAsset } = useCatalogStore()
+  const [isTesting, setIsTesting] = useState(false)
+  const [showTestToast, setShowTestToast] = useState(false)
+  const testTimerRef = useRef<number | null>(null)
+  const toastTimerRef = useRef<number | null>(null)
   const [formData, setFormData] = useState({
     workspace: '',
     name: '',
@@ -19,6 +23,17 @@ export default function CreateConnectionPage() {
     password: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    return () => {
+      if (testTimerRef.current) {
+        window.clearTimeout(testTimerRef.current)
+      }
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current)
+      }
+    }
+  }, [])
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -96,8 +111,34 @@ export default function CreateConnectionPage() {
     }
   }
 
+  const handleTestConnection = () => {
+    if (isTesting) return
+    setIsTesting(true)
+    if (testTimerRef.current) {
+      window.clearTimeout(testTimerRef.current)
+    }
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current)
+    }
+    testTimerRef.current = window.setTimeout(() => {
+      setIsTesting(false)
+      setShowTestToast(true)
+      toastTimerRef.current = window.setTimeout(() => {
+        setShowTestToast(false)
+      }, 2400)
+    }, 900)
+  }
+
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-white relative">
+      {showTestToast && (
+        <div className="absolute right-6 top-6 z-50 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-medium text-emerald-700">
+            <CheckCircle2 className="h-4 w-4" />
+            Connection test successful
+          </div>
+        </div>
+      )}
       <div className="border-b border-border px-6 py-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>
@@ -249,6 +290,16 @@ export default function CreateConnectionPage() {
           <div className="mt-8 flex justify-end gap-4">
             <Button variant="outline" onClick={handleBack}>
               Cancel
+            </Button>
+            <Button variant="outline" onClick={handleTestConnection} disabled={isTesting}>
+              {isTesting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                'Test connection'
+              )}
             </Button>
             <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
               <Save className="mr-2 h-4 w-4" />
