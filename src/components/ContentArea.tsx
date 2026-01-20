@@ -11,25 +11,27 @@ export default function ContentArea() {
   const { getAsset } = useCatalogStore()
   const activeTab = tabs.find((t) => t.id === activeTabId)
 
+  let content: React.ReactNode
+
   if (!activeTab) {
-    return (
+    content = (
       <div className="flex h-full w-full items-center justify-center bg-white">
         <div className="text-muted-foreground">No tab selected</div>
       </div>
     )
-  }
-
-  // Render page components for page tabs
-  if (activeTab.pageType) {
+  } else if (activeTab.pageType) {
     switch (activeTab.pageType) {
       case 'catalog':
-        return <CatalogPage />
+        content = <CatalogPage />
+        break
       case 'asset-type-selector':
-        return <AssetTypeSelectorPage />
+        content = <AssetTypeSelectorPage />
+        break
       case 'create-pipeline':
-        return <CreatePipelinePage />
+        content = <CreatePipelinePage />
+        break
       default:
-        return (
+        content = (
           <div className="flex h-full w-full items-center justify-center bg-white">
             <div className="flex flex-col items-center gap-4">
               <h2 className="text-2xl font-semibold">{activeTab.label}</h2>
@@ -39,28 +41,42 @@ export default function ContentArea() {
             </div>
           </div>
         )
+        break
     }
-  }
-
-  // Render asset tabs (existing functionality)
-  if (activeTab.assetId) {
+  } else if (activeTab.assetId) {
     const asset = getAsset(activeTab.assetId)
     if (asset?.type === 'connection') {
-      return <ConnectionDetailPage connection={asset} />
+      content = <ConnectionDetailPage connection={asset} />
+    } else if (asset?.type === 'pipeline') {
+      content = <PipelineDetailPage pipeline={asset} />
+    } else {
+      content = (
+        <div className="flex h-full w-full items-center justify-center bg-white">
+          <div className="flex flex-col items-center gap-4">
+            <h2 className="text-2xl font-semibold">{activeTab.label}</h2>
+            <p className="text-muted-foreground">
+              Content for {activeTab.label} will be displayed here
+            </p>
+          </div>
+        </div>
+      )
     }
-    if (asset?.type === 'pipeline') {
-      return <PipelineDetailPage pipeline={asset} />
-    }
+  } else {
+    content = (
+      <div className="flex h-full w-full items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-4">
+          <h2 className="text-2xl font-semibold">{activeTab.label}</h2>
+          <p className="text-muted-foreground">
+            Content for {activeTab.label} will be displayed here
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex h-full w-full items-center justify-center bg-white">
-      <div className="flex flex-col items-center gap-4">
-        <h2 className="text-2xl font-semibold">{activeTab.label}</h2>
-        <p className="text-muted-foreground">
-          Content for {activeTab.label} will be displayed here
-        </p>
-      </div>
+    <div className="flex min-h-0 flex-1 w-full overflow-hidden">
+      <div className="h-full w-full min-h-0">{content}</div>
     </div>
   )
 }
