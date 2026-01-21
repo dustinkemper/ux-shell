@@ -2,6 +2,7 @@ import { useTabStore } from '@/stores/tabStore'
 import { useCatalogStore } from '@/stores/catalogStore'
 import CatalogPage from './pages/CatalogPage'
 import AssetTypeSelectorPage from './pages/AssetTypeSelectorPage'
+import CreateConnectionPage from './pages/CreateConnectionPage'
 import CreatePipelinePage from './pages/CreatePipelinePage'
 import ConnectionDetailPage from './pages/ConnectionDetailPage'
 import PipelineDetailPage from './pages/PipelineDetailPage'
@@ -26,6 +27,9 @@ export default function ContentArea() {
         break
       case 'asset-type-selector':
         content = <AssetTypeSelectorPage />
+        break
+      case 'create-connection':
+        content = <CreateConnectionPage />
         break
       case 'create-pipeline':
         content = <CreatePipelinePage />

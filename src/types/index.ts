@@ -82,7 +82,12 @@ export interface Table {
 export type TabState = 'default' | 'hover' | 'focus' | 'edit' | 'loading' | 'error'
 export type TabStatus = 'clean' | 'dirty' | 'error' | null
 
-export type PageType = 'catalog' | 'asset-type-selector' | 'create-pipeline' | 'create-asset'
+export type PageType =
+  | 'catalog'
+  | 'asset-type-selector'
+  | 'create-connection'
+  | 'create-pipeline'
+  | 'create-asset'
 
 export interface Tab {
   id: string
