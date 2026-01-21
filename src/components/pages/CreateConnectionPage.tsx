@@ -123,7 +123,7 @@ const warehouseFields: FieldDefinition[] = [
 ]
 
 export default function CreateConnectionPage() {
-  const { closeTab, activeTabId, setTabAsset } = useTabStore()
+  const { closeTab, activeTabId, setTabAsset, setTabPage } = useTabStore()
   const { addAsset } = useCatalogStore()
   const [step, setStep] = useState<Step>('type')
   const [selectedConnectionType, setSelectedConnectionType] = useState<ConnectionTypeOption | null>(null)
@@ -251,10 +251,17 @@ export default function CreateConnectionPage() {
   }
 
   const handleBack = () => {
+    if (!activeTabId) return
+    setTabPage(activeTabId, 'asset-type-selector', 'Create New')
+  }
+
+  const handleStepBack = () => {
     if (step === 'credentials') {
       setStep('type')
-      return
     }
+  }
+
+  const handleCancel = () => {
     if (activeTabId) {
       closeTab(activeTabId)
     }
@@ -290,10 +297,12 @@ export default function CreateConnectionPage() {
       )}
       <div className="border-b border-border px-6 py-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={handleBack}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
+          {step === 'type' && (
+            <Button variant="ghost" size="sm" onClick={handleBack}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+          )}
           <h1 className="text-2xl font-semibold">Create Connection</h1>
         </div>
       </div>
@@ -438,7 +447,21 @@ export default function CreateConnectionPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3">
+          </div>
+        </div>
+      )}
+
+      {step === 'credentials' && (
+        <div className="border-t border-border px-6 py-4">
+          <div className="mx-auto flex max-w-3xl justify-between">
+            <Button variant="outline" onClick={handleStepBack}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleCancel}>
+                Cancel
+              </Button>
               <Button
                 variant="outline"
                 onClick={handleTestConnection}

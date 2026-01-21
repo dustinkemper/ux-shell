@@ -53,7 +53,7 @@ const generateMockTables = (connectionId: string): TableType[] => {
 }
 
 export default function CreatePipelinePage() {
-  const { closeTab, activeTabId, setTabAsset } = useTabStore()
+  const { closeTab, activeTabId, setTabAsset, setTabPage } = useTabStore()
   const { addAsset, getConnections, getAsset } = useCatalogStore()
   const [currentStep, setCurrentStep] = useState<Step>(1)
   
@@ -128,9 +128,20 @@ export default function CreatePipelinePage() {
     }
   }
 
-  const handleBack = () => {
+  const handleStepBack = () => {
     if (currentStep > 1) {
       setCurrentStep((currentStep - 1) as Step)
+    }
+  }
+
+  const handleBackToSelector = () => {
+    if (!activeTabId) return
+    setTabPage(activeTabId, 'asset-type-selector', 'Create New')
+  }
+
+  const handleCancel = () => {
+    if (activeTabId) {
+      closeTab(activeTabId)
     }
   }
 
@@ -183,40 +194,41 @@ export default function CreatePipelinePage() {
     <div className="flex h-full flex-col bg-white">
       <div className="border-b border-border px-6 py-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => activeTabId && closeTab(activeTabId)}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Cancel
-          </Button>
+          {currentStep === 1 && (
+            <Button variant="ghost" size="sm" onClick={handleBackToSelector}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+          )}
           <h1 className="text-2xl font-semibold">Create Data Pipeline</h1>
-        </div>
-        
-        {/* Progress indicator */}
-        <div className="mt-4 flex items-center gap-2">
-          {[1, 2, 3].map((step) => (
-            <div key={step} className="flex items-center">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                  currentStep >= step
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
-              >
-                {currentStep > step ? <CheckCircle2 className="h-4 w-4" /> : step}
-              </div>
-              {step < 3 && (
-                <div
-                  className={`h-1 w-16 ${
-                    currentStep > step ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
-                />
-              )}
-            </div>
-          ))}
         </div>
       </div>
 
       <div className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto flex max-w-3xl flex-col items-center">
+          <div className="sticky top-0 z-10 mb-6 flex items-center gap-2 bg-white py-2">
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center">
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                    currentStep >= step
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  {currentStep > step ? <CheckCircle2 className="h-4 w-4" /> : step}
+                </div>
+                {step < 3 && (
+                  <div
+                    className={`h-1 w-16 ${
+                      currentStep > step ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="w-full">
           {/* Step 1: Source & Destination Connections & Settings */}
           {currentStep === 1 && (
             <div className="space-y-6">
@@ -491,17 +503,21 @@ export default function CreatePipelinePage() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
 
       {/* Navigation buttons */}
       <div className="border-t border-border px-6 py-4">
         <div className="mx-auto flex max-w-3xl justify-between">
-          <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}>
+          <Button variant="outline" onClick={handleStepBack} disabled={currentStep === 1}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
           <div className="flex gap-4">
+            <Button variant="outline" onClick={handleCancel}>
+              Cancel
+            </Button>
             {currentStep < 3 ? (
               <Button onClick={handleNext}>
                 Next
