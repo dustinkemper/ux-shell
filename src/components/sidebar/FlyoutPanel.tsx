@@ -3,7 +3,6 @@ import {
   Pin,
   MoreHorizontal,
   File,
-  Folder,
   X,
   Search,
   Library,
@@ -23,6 +22,7 @@ import { useTabStore } from '@/stores/tabStore'
 import { useCatalogStore } from '@/stores/catalogStore'
 import type { Asset, AssetType, FlyoutType } from '@/types'
 import { cn } from '@/lib/utils'
+import { getAssetIcon } from '@/lib/iconUtils'
 import { useState } from 'react'
 
 // Tools panel data organized by sections
@@ -71,17 +71,6 @@ const getMoreData = (): Asset[] => [
   { id: 'script-editor', name: 'Script editor', type: 'script' },
   { id: 'table-recipe', name: 'Table recipe', type: 'table-recipe' },
 ]
-
-const getIconForType = (type: AssetType) => {
-  switch (type) {
-    case 'workspace':
-      return <Folder className="h-4 w-4 text-[#5e656a]" />
-    case 'folder':
-      return <Folder className="h-4 w-4 text-[#5e656a]" />
-    default:
-      return <File className="h-4 w-4 text-[#5e656a]" />
-  }
-}
 
 const getHeaderIcon = (flyoutType: FlyoutType) => {
   switch (flyoutType) {
@@ -218,7 +207,7 @@ function TreeItem({
           'group grid h-8 items-center rounded-[4px] pr-2 transition-colors relative overflow-hidden hover:bg-[#e0e5ec]'
         )}
         style={{
-          gridTemplateColumns: `${stemWidth}px ${caretWidth}px ${iconWidth}px 1fr auto`,
+          gridTemplateColumns: `${stemWidth}px ${caretWidth}px ${iconWidth}px 1fr`,
         }}
       >
         <StemSvg
@@ -251,21 +240,24 @@ function TreeItem({
           </div>
         )}
         <div className="relative z-10 flex h-full items-center justify-center">
-          {getIconForType(item.type)}
+          {(() => {
+            const Icon = getAssetIcon(item.type)
+            return <Icon className="h-4 w-4 text-[#5e656a]" />
+          })()}
         </div>
         <button
           onClick={handleClick}
-          className="relative z-10 flex min-w-0 flex-1 items-center overflow-hidden"
+          className="relative z-10 flex min-w-0 flex-1 items-center overflow-hidden pr-2 group-hover:pr-16 transition-[padding]"
         >
           <span
             className={cn(
-              'text-sm leading-4 whitespace-nowrap overflow-hidden text-ellipsis text-[#18191a]'
+              'min-w-0 text-sm leading-4 whitespace-nowrap overflow-hidden text-ellipsis text-[#18191a]'
             )}
           >
             {item.name}
           </span>
         </button>
-        <div className="relative z-10 ml-auto flex shrink-0 items-center gap-1">
+        <div className="absolute right-1 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -329,13 +321,13 @@ interface MenuItemProps {
 function MenuItem({ item, onItemClick }: MenuItemProps) {
   return (
     <div
-      className="flex h-8 items-center gap-2 rounded-[4px] px-1 py-1 transition-colors hover:bg-[#e0e5ec] cursor-pointer"
+      className="group flex h-8 min-w-0 items-center gap-2 rounded-[4px] px-1 py-1 transition-colors hover:bg-[#e0e5ec] cursor-pointer"
       onClick={() => onItemClick(item)}
     >
       <div className="flex h-4 w-4 shrink-0 items-center justify-center">
         <File className="h-4 w-4 text-[#5e656a]" />
       </div>
-      <span className="flex-1 text-sm leading-4 text-[#18191a] whitespace-nowrap overflow-hidden text-ellipsis">
+      <span className="min-w-0 flex-1 text-sm leading-4 text-[#18191a] whitespace-nowrap overflow-hidden text-ellipsis">
         {item.name}
       </span>
     </div>
@@ -429,7 +421,6 @@ export default function FlyoutPanel() {
 
   const data = getData()
   const toolsData = flyoutType === 'more' ? getToolsDataBySection() : null
-  const pinnedIds = new Set(pinnedItems.map((item) => item.id))
   const showFlatList = flyoutType === 'catalog' && selectedFilter !== 'all'
 
   const getFlatAssets = () => {
@@ -453,7 +444,7 @@ export default function FlyoutPanel() {
     }
 
     if (selectedFilter === 'favorites') {
-      flattened = flattened.filter((asset) => pinnedIds.has(asset.id))
+      flattened = flattened.filter((asset) => asset.tags?.includes('favorite'))
     }
 
     return flattened

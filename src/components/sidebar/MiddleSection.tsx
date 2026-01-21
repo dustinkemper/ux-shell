@@ -1,21 +1,23 @@
-import { ChevronRight, File, Folder } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useSidebarStore } from '@/stores/sidebarStore'
 import { useTabStore } from '@/stores/tabStore'
 import type { AssetType } from '@/types'
 import { cn } from '@/lib/utils'
+import { getAssetIcon } from '@/lib/iconUtils'
 import { useState } from 'react'
 
 const getIconForType = (type: AssetType, isCollapsed: boolean) => {
-  const marginClass = isCollapsed ? "" : "mr-2"
-  switch (type) {
-    case 'workspace':
-      return <Folder className={cn("h-4 w-4 shrink-0 text-[rgba(109,109,109,1)] group-hover:text-[rgba(64,64,64,1)]", marginClass)} />
-    case 'folder':
-      return <Folder className={cn("h-4 w-4 shrink-0 text-[rgba(109,109,109,1)] group-hover:text-[rgba(64,64,64,1)]", marginClass)} />
-    default:
-      return <File className={cn("h-4 w-4 shrink-0 text-[rgba(109,109,109,1)] group-hover:text-[rgba(64,64,64,1)]", marginClass)} />
-  }
+  const marginClass = isCollapsed ? '' : 'mr-2'
+  const Icon = getAssetIcon(type)
+  return (
+    <Icon
+      className={cn(
+        'h-4 w-4 shrink-0 text-[rgba(109,109,109,1)] group-hover:text-[rgba(64,64,64,1)]',
+        marginClass
+      )}
+    />
+  )
 }
 
 export default function MiddleSection() {

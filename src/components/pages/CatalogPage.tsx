@@ -6,10 +6,9 @@ import {
   ChevronDown, 
   ChevronRight,
   Plus,
-  Folder,
-  File,
-  CheckCircle2,
-  MoreHorizontal
+  MoreHorizontal,
+  Star,
+  Pin
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,19 +18,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useCatalogStore } from '@/stores/catalogStore'
+import { useSidebarStore } from '@/stores/sidebarStore'
 import { useTabStore } from '@/stores/tabStore'
 import type { Asset, AssetType } from '@/types'
 import { cn } from '@/lib/utils'
-
-const getIconForType = (type: AssetType) => {
-  switch (type) {
-    case 'workspace':
-    case 'folder':
-      return <Folder className="h-4 w-4" />
-    default:
-      return <File className="h-4 w-4" />
-  }
-}
+import { getAssetIcon } from '@/lib/iconUtils'
 
 const formatDate = (date?: Date): string => {
   if (!date) return 'Never'
@@ -56,12 +47,17 @@ export default function CatalogPage() {
     setActiveFilter,
     setSearchQuery,
     setTypeFilter,
+    getFilteredAssets,
     getHierarchicalAssets,
+    updateAsset,
+    assets,
   } = useCatalogStore()
+  const { pinnedItems, pinItem, unpinItem } = useSidebarStore()
   const { openTab, openPageTab } = useTabStore()
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['ws1', 'ws2'])) // Default: expand all workspaces
 
   const hierarchicalAssets = getHierarchicalAssets()
+
 
   const toggleExpanded = (assetId: string) => {
     setExpandedItems((prev) => {
@@ -86,6 +82,37 @@ export default function CatalogPage() {
       // Open asset in tab
       openTab(asset)
     }
+  }
+
+  const toggleFavorite = (asset: Asset, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const tags = asset.tags ?? []
+    const isFavorite = tags.includes('favorite')
+    const nextTags = isFavorite ? tags.filter((tag) => tag !== 'favorite') : [...tags, 'favorite']
+    updateAsset(asset.id, { tags: nextTags })
+  }
+
+  const togglePin = (asset: Asset, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const isPinned = pinnedItems.some((item) => item.id === asset.id)
+    if (isPinned) {
+      unpinItem(asset.id)
+    } else {
+      pinItem(asset)
+    }
+  }
+
+  const stripChildren = (asset: Asset): Asset => ({ ...asset, children: undefined })
+
+  const findAssetInTree = (assetList: Asset[], id: string): Asset | undefined => {
+    for (const asset of assetList) {
+      if (asset.id === id) return asset
+      if (asset.children) {
+        const found = findAssetInTree(asset.children, id)
+        if (found) return found
+      }
+    }
+    return undefined
   }
 
   // Recursive function to render assets in hierarchy
@@ -128,19 +155,12 @@ export default function CatalogPage() {
               ) : (
                 <div className="w-4" /> // Spacer for alignment
               )}
-              {getIconForType(asset.type)}
+              {(() => {
+                const Icon = getAssetIcon(asset.type)
+                return <Icon className="h-4 w-4" />
+              })()}
               <span className="text-sm">{asset.name}</span>
             </div>
-          </td>
-          <td className="px-4 py-3">
-            {asset.quality !== undefined ? (
-              <div className="flex items-center gap-1">
-                <span className="text-sm">{asset.quality}%</span>
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-              </div>
-            ) : (
-              <span className="text-sm text-muted-foreground">-</span>
-            )}
           </td>
           <td className="px-4 py-3">
             <span className="text-sm capitalize">{asset.type.replace('-', ' ')}</span>
@@ -155,26 +175,42 @@ export default function CatalogPage() {
             <span className="text-sm">{asset.location || '-'}</span>
           </td>
           <td className="px-4 py-3">
-            <div className="flex items-center gap-2">
-              {asset.collections && asset.collections.length > 0 && (
-                <span className="text-sm">Collection</span>
-              )}
-              {asset.tags && asset.tags.length > 0 && (
-                <span className="text-sm">#{asset.tags[0]}</span>
-              )}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={(e) => toggleFavorite(asset, e)}
+                aria-label={asset.tags?.includes('favorite') ? 'Remove favorite' : 'Add favorite'}
+              >
+                <Star
+                  className="h-4 w-4"
+                  fill={asset.tags?.includes('favorite') ? 'currentColor' : 'none'}
+                />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={(e) => togglePin(asset, e)}
+                aria-label={pinnedItems.some((item) => item.id === asset.id) ? 'Unpin' : 'Pin'}
+              >
+                <Pin
+                  className="h-4 w-4"
+                  fill={pinnedItems.some((item) => item.id === asset.id) ? 'currentColor' : 'none'}
+                />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={(e) => {
+                  e.stopPropagation()
+                }}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
             </div>
-          </td>
-          <td className="px-4 py-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={(e) => {
-                e.stopPropagation()
-              }}
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
           </td>
         </tr>
         {hasChildren && isExpanded && asset.children && (
@@ -260,11 +296,29 @@ export default function CatalogPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => setTypeFilter(undefined)}>All Types</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTypeFilter('connection')}>Connection</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTypeFilter('pipeline')}>Pipeline</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTypeFilter('analytics-app')}>Analytics App</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTypeFilter('workspace')}>Workspace</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTypeFilter('folder')}>Folder</DropdownMenuItem>
+              {[
+                { id: 'connection', label: 'Connection' },
+                { id: 'pipeline', label: 'Data Pipeline' },
+                { id: 'analytics-app', label: 'Analytics App' },
+                { id: 'dataflow', label: 'Data Flow' },
+                { id: 'table-recipe', label: 'Table Recipe' },
+                { id: 'script', label: 'Script' },
+                { id: 'data-product', label: 'Data Product' },
+                { id: 'monitor-view', label: 'Monitor View' },
+                { id: 'glossary', label: 'Glossary' },
+                { id: 'knowledge-base', label: 'Knowledge Base' },
+                { id: 'predict', label: 'Predict' },
+                { id: 'ai-assistant', label: 'AI Assistant' },
+                { id: 'workspace', label: 'Workspace' },
+                { id: 'folder', label: 'Folder' },
+              ].map((type) => (
+                <DropdownMenuItem
+                  key={type.id}
+                  onClick={() => setTypeFilter(type.id)}
+                >
+                  {type.label}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -343,17 +397,25 @@ export default function CatalogPage() {
                     <input type="checkbox" className="rounded" />
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Quality</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Type</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Owner</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Modified</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Location</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Added to</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12"></th>
                 </tr>
               </thead>
               <tbody>
-                {hierarchicalAssets.map((asset) => renderAssetRow(asset, 0))}
+                {activeFilter === 'all' && hierarchicalAssets.map((asset) => renderAssetRow(asset, 0))}
+                {activeFilter === 'recent' &&
+                  getFilteredAssets().map((asset) => renderAssetRow(stripChildren(asset), 0))}
+                {activeFilter === 'favorites' &&
+                  getFilteredAssets().map((asset) => {
+                    if (asset.type === 'workspace' || asset.type === 'folder') {
+                      const fullAsset = findAssetInTree(assets, asset.id) ?? asset
+                      return renderAssetRow(fullAsset, 0)
+                    }
+                    return renderAssetRow(stripChildren(asset), 0)
+                  })}
               </tbody>
             </table>
           </div>
@@ -370,7 +432,10 @@ export default function CatalogPage() {
                   onClick={() => handleAssetClick(asset)}
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100">
-                    {getIconForType(asset.type)}
+                    {(() => {
+                      const Icon = getAssetIcon(asset.type)
+                      return <Icon className="h-5 w-5" />
+                    })()}
                   </div>
                   <span className="text-sm font-medium text-center">{asset.name}</span>
                   <span className="text-xs text-muted-foreground capitalize">

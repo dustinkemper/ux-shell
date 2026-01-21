@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { Asset, AssetType } from '@/types'
+import type { Asset, AssetType, ConnectionMetadata } from '@/types'
+import { isSupabaseConfigured, supabase } from '@/lib/supabaseClient'
 
 interface CatalogStore {
   assets: Asset[]
@@ -9,6 +10,9 @@ interface CatalogStore {
   selectedTypeFilter?: string
   selectedOwnerFilter?: string
   selectedTagsFilter?: string[]
+  isLoading: boolean
+  isUsingFallback: boolean
+  lastError?: string | null
   
   // Actions
   setViewMode: (mode: 'grid' | 'list') => void
@@ -17,6 +21,7 @@ interface CatalogStore {
   setTypeFilter: (type?: string) => void
   setOwnerFilter: (owner?: string) => void
   setTagsFilter: (tags?: string[]) => void
+  loadAssets: () => Promise<void>
   
   // CRUD operations
   addAsset: (asset: Asset) => void
@@ -32,80 +37,573 @@ interface CatalogStore {
   getHierarchicalAssets: () => Asset[]
 }
 
-// Mock initial data - extend existing structure
+type PendingOp =
+  | { type: 'add'; asset: Asset }
+  | { type: 'update'; asset: Asset }
+  | { type: 'delete'; assetId: string }
+
+const LOCAL_ASSETS_KEY = 'ux-shell.catalog.assets'
+const LOCAL_PENDING_KEY = 'ux-shell.catalog.pendingOps'
+
+const toSerializableAsset = (asset: Asset): Asset => ({
+  ...asset,
+  modified: asset.modified ? new Date(asset.modified).toISOString() as unknown as Date : undefined,
+  children: asset.children ? asset.children.map(toSerializableAsset) : undefined,
+})
+
+const fromSerializableAsset = (asset: Asset): Asset => ({
+  ...asset,
+  modified: asset.modified ? new Date(asset.modified) : undefined,
+  children: asset.children ? asset.children.map(fromSerializableAsset) : undefined,
+})
+
+const loadLocalAssets = (): Asset[] | null => {
+  if (typeof window === 'undefined') return null
+  const raw = window.localStorage.getItem(LOCAL_ASSETS_KEY)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Asset[]
+    return parsed.map(fromSerializableAsset)
+  } catch {
+    return null
+  }
+}
+
+const saveLocalAssets = (assets: Asset[]) => {
+  if (typeof window === 'undefined') return
+  const serializable = assets.map(toSerializableAsset)
+  window.localStorage.setItem(LOCAL_ASSETS_KEY, JSON.stringify(serializable))
+}
+
+const loadPendingOps = (): PendingOp[] => {
+  if (typeof window === 'undefined') return []
+  const raw = window.localStorage.getItem(LOCAL_PENDING_KEY)
+  if (!raw) return []
+  try {
+    return JSON.parse(raw) as PendingOp[]
+  } catch {
+    return []
+  }
+}
+
+const savePendingOps = (ops: PendingOp[]) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(LOCAL_PENDING_KEY, JSON.stringify(ops))
+}
+
+const queuePendingOp = (op: PendingOp) => {
+  const ops = loadPendingOps()
+  ops.push(op)
+  savePendingOps(ops)
+}
+
+const buildHierarchy = (flatAssets: Asset[]): Asset[] => {
+  const assetMap = new Map<string, Asset>()
+  const roots: Asset[] = []
+  flatAssets.forEach((asset) => {
+    assetMap.set(asset.id, { ...asset, children: asset.children ?? [] })
+  })
+  assetMap.forEach((asset) => {
+    if (asset.parentId && assetMap.has(asset.parentId)) {
+      assetMap.get(asset.parentId)!.children!.push(asset)
+    } else {
+      roots.push(asset)
+    }
+  })
+  return roots
+}
+
+const tagIdForName = (name: string) =>
+  `tag_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`
+
+const collectionIdForName = (name: string) =>
+  `col_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`
+
+const assetToRecord = (asset: Asset) => ({
+  id: asset.id,
+  name: asset.name,
+  type: asset.type,
+  description: asset.description ?? null,
+  parent_id: asset.parentId ?? null,
+  owner: asset.owner ?? null,
+  quality: asset.quality ?? null,
+  modified_at: asset.modified ? asset.modified.toISOString() : new Date().toISOString(),
+  location: asset.location ?? null,
+  is_pinned: asset.isPinned ?? false,
+  icon: asset.icon ?? null,
+})
+
+const fetchAssetsFromSupabase = async (): Promise<Asset[]> => {
+  if (!supabase) return []
+
+  const assetsResponse = await supabase.from('assets').select('*')
+  if (assetsResponse.error) throw assetsResponse.error
+
+  const assets = (assetsResponse.data ?? []).map((record) => ({
+    id: record.id,
+    name: record.name,
+    type: record.type as AssetType,
+    description: record.description ?? undefined,
+    parentId: record.parent_id ?? undefined,
+    owner: record.owner ?? undefined,
+    quality: record.quality ?? undefined,
+    modified: record.modified_at ? new Date(record.modified_at) : undefined,
+    location: record.location ?? undefined,
+    isPinned: record.is_pinned ?? undefined,
+    icon: record.icon ?? undefined,
+  })) as Asset[]
+
+  const [tagsRes, collectionsRes, connectionsRes] = await Promise.all([
+    supabase.from('asset_tags').select('asset_id, tag_id, tags(name)'),
+    supabase.from('asset_collections').select('asset_id, collection_id, collections(name)'),
+    supabase.from('connection_metadata').select('*'),
+  ])
+
+  if (tagsRes.error) throw tagsRes.error
+  if (collectionsRes.error) throw collectionsRes.error
+  if (connectionsRes.error) throw connectionsRes.error
+
+  const tagsByAsset = new Map<string, string[]>()
+  for (const row of tagsRes.data ?? []) {
+    const tagName = row.tags?.name
+    if (!tagName) continue
+    const list = tagsByAsset.get(row.asset_id) ?? []
+    list.push(tagName)
+    tagsByAsset.set(row.asset_id, list)
+  }
+
+  const collectionsByAsset = new Map<string, string[]>()
+  for (const row of collectionsRes.data ?? []) {
+    const collectionName = row.collections?.name
+    if (!collectionName) continue
+    const list = collectionsByAsset.get(row.asset_id) ?? []
+    list.push(collectionName)
+    collectionsByAsset.set(row.asset_id, list)
+  }
+
+  const connectionByAsset = new Map<string, ConnectionMetadata>()
+  for (const row of connectionsRes.data ?? []) {
+    connectionByAsset.set(row.asset_id, {
+      connectionType: row.connection_type,
+      host: row.host ?? undefined,
+      port: row.port ?? undefined,
+      database: row.database ?? undefined,
+      username: row.username ?? undefined,
+      schema: row.schema ?? undefined,
+      account: row.account ?? undefined,
+      warehouse: row.warehouse ?? undefined,
+      role: row.role ?? undefined,
+      apiKey: row.api_key ?? undefined,
+      clientId: row.client_id ?? undefined,
+      clientSecret: row.client_secret ?? undefined,
+      accountId: row.account_id ?? undefined,
+    })
+  }
+
+  const enriched = assets.map((asset) => ({
+    ...asset,
+    tags: tagsByAsset.get(asset.id),
+    collections: collectionsByAsset.get(asset.id),
+    connectionMetadata: connectionByAsset.get(asset.id),
+  }))
+
+  return buildHierarchy(enriched)
+}
+
+const upsertAssetToSupabase = async (asset: Asset) => {
+  if (!supabase) return
+  const { error: assetError } = await supabase.from('assets').upsert(assetToRecord(asset))
+  if (assetError) throw assetError
+
+  if (asset.connectionMetadata) {
+    const { error: connectionError } = await supabase.from('connection_metadata').upsert({
+      asset_id: asset.id,
+      connection_type: asset.connectionMetadata.connectionType,
+      host: asset.connectionMetadata.host ?? null,
+      port: asset.connectionMetadata.port ?? null,
+      database: asset.connectionMetadata.database ?? null,
+      username: asset.connectionMetadata.username ?? null,
+      schema: asset.connectionMetadata.schema ?? null,
+      account: asset.connectionMetadata.account ?? null,
+      warehouse: asset.connectionMetadata.warehouse ?? null,
+      role: asset.connectionMetadata.role ?? null,
+      api_key: asset.connectionMetadata.apiKey ?? null,
+      client_id: asset.connectionMetadata.clientId ?? null,
+      client_secret: asset.connectionMetadata.clientSecret ?? null,
+      account_id: asset.connectionMetadata.accountId ?? null,
+    })
+    if (connectionError) throw connectionError
+  }
+
+  if (asset.tags && asset.tags.length > 0) {
+    const tagRows = asset.tags.map((tag) => ({
+      id: tagIdForName(tag),
+      name: tag,
+    }))
+    const { error: tagError } = await supabase.from('tags').upsert(tagRows)
+    if (tagError) throw tagError
+    await supabase.from('asset_tags').delete().eq('asset_id', asset.id)
+    const { error: tagLinkError } = await supabase.from('asset_tags').insert(
+      asset.tags.map((tag) => ({
+        asset_id: asset.id,
+        tag_id: tagIdForName(tag),
+      }))
+    )
+    if (tagLinkError) throw tagLinkError
+  }
+
+  if (asset.collections && asset.collections.length > 0) {
+    const collectionRows = asset.collections.map((collection) => ({
+      id: collectionIdForName(collection),
+      name: collection,
+    }))
+    const { error: collectionError } = await supabase.from('collections').upsert(collectionRows)
+    if (collectionError) throw collectionError
+    await supabase.from('asset_collections').delete().eq('asset_id', asset.id)
+    const { error: collectionLinkError } = await supabase.from('asset_collections').insert(
+      asset.collections.map((collection) => ({
+        asset_id: asset.id,
+        collection_id: collectionIdForName(collection),
+      }))
+    )
+    if (collectionLinkError) throw collectionLinkError
+  }
+}
+
+const deleteAssetInSupabase = async (assetId: string) => {
+  if (!supabase) return
+  const { error } = await supabase.from('assets').delete().eq('id', assetId)
+  if (error) throw error
+}
+
+const syncPendingOps = async () => {
+  if (!supabase) return
+  const pending = loadPendingOps()
+  if (pending.length === 0) return
+  const remaining: PendingOp[] = []
+  for (const op of pending) {
+    try {
+      if (op.type === 'delete') {
+        await deleteAssetInSupabase(op.assetId)
+      } else {
+        await upsertAssetToSupabase(op.asset)
+      }
+    } catch {
+      remaining.push(op)
+    }
+  }
+  savePendingOps(remaining)
+}
+
+// Mock initial data - used for fallback
 const initialAssets: Asset[] = [
   {
-    id: 'ws1',
-    name: 'Workspace 1',
+    id: 'ws_analytics',
+    name: 'Analytics Studio',
     type: 'workspace',
-    owner: 'Ron Swanson',
+    owner: 'Avery Chen',
     modified: new Date('2025-11-17'),
-    location: 'Serious Business',
+    location: 'Data Platform',
+    quality: 92,
+    isPinned: true,
     children: [
       {
-        id: 'folder1',
-        name: 'Folder 1',
+        id: 'fd_finance',
+        name: 'Finance',
         type: 'folder',
-        parentId: 'ws1',
-        owner: 'Ron Swanson',
-        modified: new Date('2025-11-16'),
-        location: 'Serious Business',
+        parentId: 'ws_analytics',
+        owner: 'Avery Chen',
+        modified: new Date('2025-11-15'),
+        location: 'Data Platform',
+        quality: 86,
         children: [
-          { 
-            id: 'app1', 
-            name: 'Analytics App 1', 
-            type: 'analytics-app', 
-            parentId: 'folder1',
-            owner: 'Ron Swanson',
-            modified: new Date('2025-11-15'),
-            location: 'Serious Business',
-            quality: 82,
-          },
-          { 
-            id: 'pipeline1', 
-            name: 'Data Pipeline 1', 
-            type: 'pipeline', 
-            parentId: 'folder1',
-            owner: 'Ron Swanson',
+          {
+            id: 'conn_postgres',
+            name: 'Postgres - Billing',
+            type: 'connection',
+            parentId: 'fd_finance',
+            owner: 'Avery Chen',
             modified: new Date('2025-11-14'),
-            location: 'Serious Business',
-            quality: 82,
+            location: 'Data Platform',
+            quality: 89,
+            connectionMetadata: {
+              connectionType: 'database',
+              host: 'billing-db.internal',
+              port: 5432,
+              database: 'billing',
+              username: 'svc_billing',
+              schema: 'public',
+            },
+          },
+          {
+            id: 'pipe_finance_close',
+            name: 'Month-End Close Pipeline',
+            type: 'pipeline',
+            parentId: 'fd_finance',
+            owner: 'Avery Chen',
+            modified: new Date('2025-11-13'),
+            location: 'Data Platform',
+            quality: 88,
           },
         ],
       },
-      { 
-        id: 'app2', 
-        name: 'Analytics App 2', 
-        type: 'analytics-app', 
-        parentId: 'ws1',
-        owner: 'Ron Swanson',
-        modified: new Date('2025-11-13'),
-        location: 'Serious Business',
-        quality: 82,
+      {
+        id: 'app_exec_dashboard',
+        name: 'Executive Metrics Dashboard',
+        type: 'analytics-app',
+        parentId: 'ws_analytics',
+        owner: 'Avery Chen',
+        modified: new Date('2025-11-16'),
+        location: 'Data Platform',
+        quality: 91,
+        tags: ['gold'],
+        collections: ['Executive Metrics'],
+      },
+      {
+        id: 'glossary_kpis',
+        name: 'KPI Glossary',
+        type: 'glossary',
+        parentId: 'ws_analytics',
+        owner: 'Avery Chen',
+        modified: new Date('2025-11-12'),
+        location: 'Data Platform',
+        quality: 89,
+      },
+      {
+        id: 'assistant_analyst',
+        name: 'Analyst Copilot',
+        type: 'ai-assistant',
+        parentId: 'ws_analytics',
+        owner: 'Avery Chen',
+        modified: new Date('2025-11-11'),
+        location: 'Data Platform',
+        quality: 85,
       },
     ],
   },
   {
-    id: 'ws2',
-    name: 'Workspace 2',
+    id: 'ws_growth',
+    name: 'Growth Workspace',
     type: 'workspace',
-    owner: 'Ron Swanson',
-    modified: new Date('2025-11-12'),
-    location: 'Personal',
+    owner: 'Jordan Lee',
+    modified: new Date('2025-11-16'),
+    location: 'GTM',
+    quality: 88,
     children: [
-      { 
-        id: 'kb1', 
-        name: 'Knowledge Base 1', 
-        type: 'knowledge-base', 
-        parentId: 'ws2',
-        owner: 'Ron Swanson',
-        modified: new Date('2025-11-11'),
-        location: 'Personal',
-        quality: 82,
+      {
+        id: 'fd_marketing',
+        name: 'Marketing',
+        type: 'folder',
+        parentId: 'ws_growth',
+        owner: 'Jordan Lee',
+        modified: new Date('2025-11-15'),
+        location: 'GTM',
+        quality: 84,
+        children: [
+          {
+            id: 'fd_revops',
+            name: 'Revenue Ops',
+            type: 'folder',
+            parentId: 'fd_marketing',
+            owner: 'Jordan Lee',
+            modified: new Date('2025-11-13'),
+            location: 'GTM',
+            quality: 83,
+            children: [
+              {
+                id: 'pipe_revenue_daily',
+                name: 'Daily Revenue Pipeline',
+                type: 'pipeline',
+                parentId: 'fd_revops',
+                owner: 'Jordan Lee',
+                modified: new Date('2025-11-12'),
+                location: 'GTM',
+                quality: 90,
+                tags: ['growth', 'gold'],
+                collections: ['Revenue Ops'],
+              },
+              {
+                id: 'recipe_orders_clean',
+                name: 'Orders Cleanup Recipe',
+                type: 'table-recipe',
+                parentId: 'fd_revops',
+                owner: 'Jordan Lee',
+                modified: new Date('2025-11-10'),
+                location: 'GTM',
+                quality: 84,
+              },
+            ],
+          },
+          {
+            id: 'conn_hubspot',
+            name: 'HubSpot - Marketing',
+            type: 'connection',
+            parentId: 'fd_marketing',
+            owner: 'Jordan Lee',
+            modified: new Date('2025-11-14'),
+            location: 'GTM',
+            quality: 85,
+            connectionMetadata: {
+              connectionType: 'api',
+              apiKey: 'hubspot_api_key',
+              clientId: 'hubspot_client_id',
+              clientSecret: 'hubspot_client_secret',
+              accountId: 'hubspot_account_id',
+            },
+          },
+          {
+            id: 'script_attribution',
+            name: 'Attribution Modeling Script',
+            type: 'script',
+            parentId: 'fd_marketing',
+            owner: 'Jordan Lee',
+            modified: new Date('2025-11-09'),
+            location: 'GTM',
+            quality: 82,
+          },
+          {
+            id: 'app_growth_funnel',
+            name: 'Growth Funnel Explorer',
+            type: 'analytics-app',
+            parentId: 'fd_marketing',
+            owner: 'Jordan Lee',
+            modified: new Date('2025-11-12'),
+            location: 'GTM',
+            quality: 87,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'ws_platform',
+    name: 'Data Platform',
+    type: 'workspace',
+    owner: 'Priya Patel',
+    modified: new Date('2025-11-18'),
+    location: 'Core Systems',
+    quality: 95,
+    isPinned: true,
+    children: [
+      {
+        id: 'fd_ops',
+        name: 'Operations',
+        type: 'folder',
+        parentId: 'ws_platform',
+        owner: 'Priya Patel',
+        modified: new Date('2025-11-17'),
+        location: 'Core Systems',
+        quality: 90,
+        children: [
+          {
+            id: 'monitor_quality',
+            name: 'Pipeline Quality Monitor',
+            type: 'monitor-view',
+            parentId: 'fd_ops',
+            owner: 'Priya Patel',
+            modified: new Date('2025-11-15'),
+            location: 'Core Systems',
+            quality: 93,
+          },
+          {
+            id: 'kb_runbooks',
+            name: 'Data Operations Runbooks',
+            type: 'knowledge-base',
+            parentId: 'fd_ops',
+            owner: 'Priya Patel',
+            modified: new Date('2025-11-14'),
+            location: 'Core Systems',
+            quality: 86,
+          },
+        ],
+      },
+      {
+        id: 'conn_snowflake',
+        name: 'Snowflake - Prod',
+        type: 'connection',
+        parentId: 'ws_platform',
+        owner: 'Priya Patel',
+        modified: new Date('2025-11-18'),
+        location: 'Core Systems',
+        quality: 93,
+        connectionMetadata: {
+          connectionType: 'data-warehouse',
+          account: 'acme',
+          warehouse: 'WH_XS',
+          database: 'ANALYTICS',
+          role: 'ANALYST',
+          username: 'svc_analytics',
+          schema: 'PUBLIC',
+        },
+      },
+      {
+        id: 'flow_customer_dim',
+        name: 'Customer Dimension Flow',
+        type: 'dataflow',
+        parentId: 'ws_platform',
+        owner: 'Priya Patel',
+        modified: new Date('2025-11-16'),
+        location: 'Core Systems',
+        quality: 92,
+      },
+      {
+        id: 'dp_customer_360',
+        name: 'Customer 360 Data Product',
+        type: 'data-product',
+        parentId: 'ws_platform',
+        owner: 'Priya Patel',
+        modified: new Date('2025-11-15'),
+        location: 'Core Systems',
+        quality: 94,
+        tags: ['pii', 'gold'],
+        collections: ['Customer 360'],
+      },
+      {
+        id: 'predict_churn',
+        name: 'Churn Risk Prediction',
+        type: 'predict',
+        parentId: 'ws_platform',
+        owner: 'Priya Patel',
+        modified: new Date('2025-11-13'),
+        location: 'Core Systems',
+        quality: 88,
       },
     ],
   },
 ]
+
+const insertChild = (assets: Asset[], parentId: string, newAsset: Asset): Asset[] => {
+  return assets.map((item) => {
+    if (item.id === parentId) {
+      const children = item.children ? [...item.children, newAsset] : [newAsset]
+      return { ...item, children }
+    }
+    if (item.children) {
+      return { ...item, children: insertChild(item.children, parentId, newAsset) }
+    }
+    return item
+  })
+}
+
+const updateChild = (assets: Asset[], assetId: string, updates: Partial<Asset>): Asset[] => {
+  return assets.map((item) => {
+    if (item.id === assetId) {
+      return { ...item, ...updates, modified: new Date() }
+    }
+    if (item.children) {
+      return { ...item, children: updateChild(item.children, assetId, updates) }
+    }
+    return item
+  })
+}
+
+const deleteChild = (assets: Asset[], assetId: string): Asset[] => {
+  return assets
+    .filter((item) => item.id !== assetId)
+    .map((item) =>
+      item.children ? { ...item, children: deleteChild(item.children, assetId) } : item
+    )
+}
 
 export const useCatalogStore = create<CatalogStore>((set, get) => ({
   assets: initialAssets,
@@ -115,6 +613,9 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   selectedTypeFilter: undefined,
   selectedOwnerFilter: undefined,
   selectedTagsFilter: undefined,
+  isLoading: false,
+  isUsingFallback: false,
+  lastError: null,
 
   setViewMode: (mode) => set({ viewMode: mode }),
   setActiveFilter: (filter) => set({ activeFilter: filter }),
@@ -122,48 +623,92 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   setTypeFilter: (type) => set({ selectedTypeFilter: type }),
   setOwnerFilter: (owner) => set({ selectedOwnerFilter: owner }),
   setTagsFilter: (tags) => set({ selectedTagsFilter: tags }),
+  loadAssets: async () => {
+    set({ isLoading: true })
+    const localAssets = loadLocalAssets()
+    if (!isSupabaseConfigured || !supabase) {
+      const fallbackAssets = localAssets ?? initialAssets
+      set({
+        assets: fallbackAssets,
+        isLoading: false,
+        isUsingFallback: true,
+        lastError: 'Supabase is not configured.',
+      })
+      saveLocalAssets(fallbackAssets)
+      return
+    }
+    try {
+      const supabaseAssets = await fetchAssetsFromSupabase()
+      const nextAssets = supabaseAssets.length > 0 ? supabaseAssets : localAssets ?? initialAssets
+      set({ assets: nextAssets, isLoading: false, isUsingFallback: false, lastError: null })
+      saveLocalAssets(nextAssets)
+      await syncPendingOps()
+    } catch (error) {
+      const fallbackAssets = localAssets ?? initialAssets
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      set({
+        assets: fallbackAssets,
+        isLoading: false,
+        isUsingFallback: true,
+        lastError: message,
+      })
+      saveLocalAssets(fallbackAssets)
+      console.warn('Supabase unavailable, using local fallback.', error)
+    }
+  },
 
   addAsset: (asset) => {
     const newAsset = {
       ...asset,
       modified: new Date(),
-      owner: asset.owner ?? 'Ron Swanson', // Default owner for new assets
+      owner: asset.owner ?? 'Avery Chen', // Default owner for new assets
       quality: asset.quality ?? 82, // Default quality
     }
+    const nextAssets = newAsset.parentId
+      ? insertChild(get().assets, newAsset.parentId, newAsset)
+      : [...get().assets, newAsset]
 
-    const insertChild = (assets: Asset[], parentId: string): Asset[] => {
-      return assets.map((item) => {
-        if (item.id === parentId) {
-          const children = item.children ? [...item.children, newAsset] : [newAsset]
-          return { ...item, children }
-        }
-        if (item.children) {
-          return { ...item, children: insertChild(item.children, parentId) }
-        }
-        return item
-      })
+    set({ assets: nextAssets })
+    saveLocalAssets(nextAssets)
+
+    if (!isSupabaseConfigured || !supabase) {
+      queuePendingOp({ type: 'add', asset: newAsset })
+      return
     }
 
-    set((state) => {
-      if (newAsset.parentId) {
-        return { assets: insertChild(state.assets, newAsset.parentId) }
-      }
-      return { assets: [...state.assets, newAsset] }
+    upsertAssetToSupabase(newAsset).catch(() => {
+      queuePendingOp({ type: 'add', asset: newAsset })
     })
   },
 
   updateAsset: (id, updates) => {
-    set((state) => ({
-      assets: state.assets.map((asset) =>
-        asset.id === id ? { ...asset, ...updates, modified: new Date() } : asset
-      ),
-    }))
+    const nextAssets = updateChild(get().assets, id, updates)
+    set({ assets: nextAssets })
+    saveLocalAssets(nextAssets)
+
+    const updatedAsset = get().getAsset(id)
+    if (!updatedAsset) return
+    if (!isSupabaseConfigured || !supabase) {
+      queuePendingOp({ type: 'update', asset: updatedAsset })
+      return
+    }
+    upsertAssetToSupabase(updatedAsset).catch(() => {
+      queuePendingOp({ type: 'update', asset: updatedAsset })
+    })
   },
 
   deleteAsset: (id) => {
-    set((state) => ({
-      assets: state.assets.filter((asset) => asset.id !== id),
-    }))
+    const nextAssets = deleteChild(get().assets, id)
+    set({ assets: nextAssets })
+    saveLocalAssets(nextAssets)
+
+    if (!isSupabaseConfigured || !supabase) {
+      queuePendingOp({ type: 'delete', assetId: id })
+      return
+    }
+    deleteAssetInSupabase(id).catch(() => {
+      queuePendingOp({ type: 'delete', assetId: id })
+    })
   },
 
   getAsset: (id) => {
@@ -252,9 +797,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
         })
         .slice(0, 20) // Top 20 most recent
     } else if (activeFilter === 'favorites') {
-      // For now, we'll use isPinned as favorites indicator
-      // In a real app, there would be a separate favorites system
-      filtered = filtered.filter((asset) => asset.isPinned)
+      filtered = filtered.filter((asset) => asset.tags?.includes('favorite'))
     }
 
     return filtered
@@ -378,11 +921,10 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
       }
       hierarchical = sortByDate(hierarchical)
     } else if (activeFilter === 'favorites') {
-      // For favorites, filter to only show pinned items
       const filterFavorites = (assetList: Asset[]): Asset[] => {
         const result: Asset[] = []
         for (const asset of assetList) {
-          const isFavorite = asset.isPinned
+          const isFavorite = asset.tags?.includes('favorite')
           let filteredChildren: Asset[] = []
           if (asset.children) {
             filteredChildren = filterFavorites(asset.children)

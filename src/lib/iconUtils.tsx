@@ -2,6 +2,7 @@ import {
   Home,
   File,
   Folder,
+  Box,
   Database,
   Workflow,
   BarChart3,
@@ -25,6 +26,7 @@ import type { AssetType, PageType } from '@/types'
 export const getAssetIcon = (type: AssetType): LucideIcon => {
   switch (type) {
     case 'workspace':
+      return Box
     case 'folder':
       return Folder
     case 'connection':
