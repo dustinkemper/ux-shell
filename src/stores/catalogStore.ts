@@ -113,6 +113,36 @@ const buildHierarchy = (flatAssets: Asset[]): Asset[] => {
   return roots
 }
 
+const collectFavoriteIds = (assets: Asset[]): Set<string> => {
+  const favorites = new Set<string>()
+  const walk = (items: Asset[]) => {
+    for (const item of items) {
+      if (item.tags?.includes('favorite')) {
+        favorites.add(item.id)
+      }
+      if (item.children) {
+        walk(item.children)
+      }
+    }
+  }
+  walk(assets)
+  return favorites
+}
+
+const mergeFavoriteTags = (assets: Asset[], favorites: Set<string>): Asset[] => {
+  return assets.map((asset) => {
+    const hasFavorite = favorites.has(asset.id)
+    const nextTags = hasFavorite
+      ? Array.from(new Set([...(asset.tags ?? []), 'favorite']))
+      : asset.tags
+    return {
+      ...asset,
+      tags: nextTags,
+      children: asset.children ? mergeFavoriteTags(asset.children, favorites) : asset.children,
+    }
+  })
+}
+
 const tagIdForName = (name: string) =>
   `tag_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`
 
@@ -308,8 +338,8 @@ const initialAssets: Asset[] = [
     isPinned: true,
     children: [
       {
-        id: 'fd_finance',
-        name: 'Finance',
+        id: 'fd_exec_reporting',
+        name: 'Executive Reporting',
         type: 'folder',
         parentId: 'ws_analytics',
         owner: 'Avery Chen',
@@ -318,28 +348,20 @@ const initialAssets: Asset[] = [
         quality: 86,
         children: [
           {
-            id: 'conn_postgres',
-            name: 'Postgres - Billing',
-            type: 'connection',
-            parentId: 'fd_finance',
+            id: 'app_exec_dashboard',
+            name: 'Executive Metrics Dashboard',
+            type: 'analytics-app',
+            parentId: 'fd_exec_reporting',
             owner: 'Avery Chen',
             modified: new Date('2025-11-14'),
             location: 'Data Platform',
-            quality: 89,
-            connectionMetadata: {
-              connectionType: 'database',
-              host: 'billing-db.internal',
-              port: 5432,
-              database: 'billing',
-              username: 'svc_billing',
-              schema: 'public',
-            },
+            quality: 91,
           },
           {
-            id: 'pipe_finance_close',
-            name: 'Month-End Close Pipeline',
+            id: 'pipe_kpi_rollup',
+            name: 'Daily KPI Rollup',
             type: 'pipeline',
-            parentId: 'fd_finance',
+            parentId: 'fd_exec_reporting',
             owner: 'Avery Chen',
             modified: new Date('2025-11-13'),
             location: 'Data Platform',
@@ -348,42 +370,39 @@ const initialAssets: Asset[] = [
         ],
       },
       {
-        id: 'app_exec_dashboard',
-        name: 'Executive Metrics Dashboard',
-        type: 'analytics-app',
+        id: 'conn_snowflake_analytics',
+        name: 'Snowflake - Analytics',
+        type: 'connection',
         parentId: 'ws_analytics',
         owner: 'Avery Chen',
         modified: new Date('2025-11-16'),
         location: 'Data Platform',
-        quality: 91,
-        tags: ['gold'],
-        collections: ['Executive Metrics'],
+        quality: 93,
+        connectionMetadata: {
+          connectionType: 'data-warehouse',
+          account: 'acme',
+          warehouse: 'WH_XS',
+          database: 'ANALYTICS',
+          role: 'ANALYST',
+          username: 'svc_analytics',
+          schema: 'PUBLIC',
+        },
       },
       {
-        id: 'glossary_kpis',
-        name: 'KPI Glossary',
-        type: 'glossary',
+        id: 'app_operations_overview',
+        name: 'Operations Overview',
+        type: 'analytics-app',
         parentId: 'ws_analytics',
         owner: 'Avery Chen',
         modified: new Date('2025-11-12'),
         location: 'Data Platform',
-        quality: 89,
-      },
-      {
-        id: 'assistant_analyst',
-        name: 'Analyst Copilot',
-        type: 'ai-assistant',
-        parentId: 'ws_analytics',
-        owner: 'Avery Chen',
-        modified: new Date('2025-11-11'),
-        location: 'Data Platform',
-        quality: 85,
+        quality: 86,
       },
     ],
   },
   {
-    id: 'ws_growth',
-    name: 'Growth Workspace',
+    id: 'ws_marketing',
+    name: 'Marketing',
     type: 'workspace',
     owner: 'Jordan Lee',
     modified: new Date('2025-11-16'),
@@ -391,87 +410,70 @@ const initialAssets: Asset[] = [
     quality: 88,
     children: [
       {
-        id: 'fd_marketing',
-        name: 'Marketing',
+        id: 'fd_campaign_perf',
+        name: 'Campaign Performance',
         type: 'folder',
-        parentId: 'ws_growth',
+        parentId: 'ws_marketing',
         owner: 'Jordan Lee',
         modified: new Date('2025-11-15'),
         location: 'GTM',
         quality: 84,
         children: [
           {
-            id: 'fd_revops',
-            name: 'Revenue Ops',
-            type: 'folder',
-            parentId: 'fd_marketing',
-            owner: 'Jordan Lee',
-            modified: new Date('2025-11-13'),
-            location: 'GTM',
-            quality: 83,
-            children: [
-              {
-                id: 'pipe_revenue_daily',
-                name: 'Daily Revenue Pipeline',
-                type: 'pipeline',
-                parentId: 'fd_revops',
-                owner: 'Jordan Lee',
-                modified: new Date('2025-11-12'),
-                location: 'GTM',
-                quality: 90,
-                tags: ['growth', 'gold'],
-                collections: ['Revenue Ops'],
-              },
-              {
-                id: 'recipe_orders_clean',
-                name: 'Orders Cleanup Recipe',
-                type: 'table-recipe',
-                parentId: 'fd_revops',
-                owner: 'Jordan Lee',
-                modified: new Date('2025-11-10'),
-                location: 'GTM',
-                quality: 84,
-              },
-            ],
-          },
-          {
-            id: 'conn_hubspot',
-            name: 'HubSpot - Marketing',
-            type: 'connection',
-            parentId: 'fd_marketing',
-            owner: 'Jordan Lee',
-            modified: new Date('2025-11-14'),
-            location: 'GTM',
-            quality: 85,
-            connectionMetadata: {
-              connectionType: 'api',
-              apiKey: 'hubspot_api_key',
-              clientId: 'hubspot_client_id',
-              clientSecret: 'hubspot_client_secret',
-              accountId: 'hubspot_account_id',
-            },
-          },
-          {
-            id: 'script_attribution',
-            name: 'Attribution Modeling Script',
-            type: 'script',
-            parentId: 'fd_marketing',
-            owner: 'Jordan Lee',
-            modified: new Date('2025-11-09'),
-            location: 'GTM',
-            quality: 82,
-          },
-          {
-            id: 'app_growth_funnel',
-            name: 'Growth Funnel Explorer',
+            id: 'app_campaign_perf',
+            name: 'Campaign Performance Dashboard',
             type: 'analytics-app',
-            parentId: 'fd_marketing',
+            parentId: 'fd_campaign_perf',
             owner: 'Jordan Lee',
             modified: new Date('2025-11-12'),
             location: 'GTM',
             quality: 87,
           },
+          {
+            id: 'pipe_ad_spend',
+            name: 'Ad Spend Attribution',
+            type: 'pipeline',
+            parentId: 'fd_campaign_perf',
+            owner: 'Jordan Lee',
+            modified: new Date('2025-11-13'),
+            location: 'GTM',
+            quality: 87,
+          },
         ],
+      },
+      {
+        id: 'conn_hubspot',
+        name: 'HubSpot - Marketing',
+        type: 'connection',
+        parentId: 'ws_marketing',
+        owner: 'Jordan Lee',
+        modified: new Date('2025-11-14'),
+        location: 'GTM',
+        quality: 85,
+        connectionMetadata: {
+          connectionType: 'api',
+          apiKey: 'hubspot_api_key',
+          clientId: 'hubspot_client_id',
+          clientSecret: 'hubspot_client_secret',
+          accountId: 'hubspot_account_id',
+        },
+      },
+      {
+        id: 'conn_google_ads',
+        name: 'Google Ads',
+        type: 'connection',
+        parentId: 'ws_marketing',
+        owner: 'Jordan Lee',
+        modified: new Date('2025-11-13'),
+        location: 'GTM',
+        quality: 84,
+        connectionMetadata: {
+          connectionType: 'api',
+          apiKey: 'google_ads_key',
+          clientId: 'google_ads_client_id',
+          clientSecret: 'google_ads_client_secret',
+          accountId: 'google_ads_account_id',
+        },
       },
     ],
   },
@@ -486,8 +488,8 @@ const initialAssets: Asset[] = [
     isPinned: true,
     children: [
       {
-        id: 'fd_ops',
-        name: 'Operations',
+        id: 'fd_core_data',
+        name: 'Core Data',
         type: 'folder',
         parentId: 'ws_platform',
         owner: 'Priya Patel',
@@ -496,29 +498,46 @@ const initialAssets: Asset[] = [
         quality: 90,
         children: [
           {
-            id: 'monitor_quality',
-            name: 'Pipeline Quality Monitor',
-            type: 'monitor-view',
-            parentId: 'fd_ops',
+            id: 'pipe_customer_360',
+            name: 'Customer 360 Pipeline',
+            type: 'pipeline',
+            parentId: 'fd_core_data',
             owner: 'Priya Patel',
             modified: new Date('2025-11-15'),
             location: 'Core Systems',
-            quality: 93,
+            quality: 91,
           },
           {
-            id: 'kb_runbooks',
-            name: 'Data Operations Runbooks',
-            type: 'knowledge-base',
-            parentId: 'fd_ops',
+            id: 'pipe_revenue_facts',
+            name: 'Revenue Facts Pipeline',
+            type: 'pipeline',
+            parentId: 'fd_core_data',
             owner: 'Priya Patel',
             modified: new Date('2025-11-14'),
             location: 'Core Systems',
-            quality: 86,
+            quality: 90,
           },
         ],
       },
       {
-        id: 'conn_snowflake',
+        id: 'conn_mysql_billing',
+        name: 'MySQL - Billing',
+        type: 'connection',
+        parentId: 'ws_platform',
+        owner: 'Priya Patel',
+        modified: new Date('2025-11-16'),
+        location: 'Core Systems',
+        quality: 89,
+        connectionMetadata: {
+          connectionType: 'database',
+          host: 'billing-db.internal',
+          port: 3306,
+          database: 'billing',
+          username: 'svc_billing',
+        },
+      },
+      {
+        id: 'conn_snowflake_prod',
         name: 'Snowflake - Prod',
         type: 'connection',
         parentId: 'ws_platform',
@@ -529,44 +548,12 @@ const initialAssets: Asset[] = [
         connectionMetadata: {
           connectionType: 'data-warehouse',
           account: 'acme',
-          warehouse: 'WH_XS',
-          database: 'ANALYTICS',
+          warehouse: 'WH_SM',
+          database: 'PROD',
           role: 'ANALYST',
-          username: 'svc_analytics',
+          username: 'svc_warehouse',
           schema: 'PUBLIC',
         },
-      },
-      {
-        id: 'flow_customer_dim',
-        name: 'Customer Dimension Flow',
-        type: 'dataflow',
-        parentId: 'ws_platform',
-        owner: 'Priya Patel',
-        modified: new Date('2025-11-16'),
-        location: 'Core Systems',
-        quality: 92,
-      },
-      {
-        id: 'dp_customer_360',
-        name: 'Customer 360 Data Product',
-        type: 'data-product',
-        parentId: 'ws_platform',
-        owner: 'Priya Patel',
-        modified: new Date('2025-11-15'),
-        location: 'Core Systems',
-        quality: 94,
-        tags: ['pii', 'gold'],
-        collections: ['Customer 360'],
-      },
-      {
-        id: 'predict_churn',
-        name: 'Churn Risk Prediction',
-        type: 'predict',
-        parentId: 'ws_platform',
-        owner: 'Priya Patel',
-        modified: new Date('2025-11-13'),
-        location: 'Core Systems',
-        quality: 88,
       },
     ],
   },
@@ -639,7 +626,9 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
     }
     try {
       const supabaseAssets = await fetchAssetsFromSupabase()
-      const nextAssets = supabaseAssets.length > 0 ? supabaseAssets : localAssets ?? initialAssets
+      const nextAssetsRaw = supabaseAssets.length > 0 ? supabaseAssets : localAssets ?? initialAssets
+      const favoriteIds = localAssets ? collectFavoriteIds(localAssets) : new Set<string>()
+      const nextAssets = favoriteIds.size > 0 ? mergeFavoriteTags(nextAssetsRaw, favoriteIds) : nextAssetsRaw
       set({ assets: nextAssets, isLoading: false, isUsingFallback: false, lastError: null })
       saveLocalAssets(nextAssets)
       await syncPendingOps()

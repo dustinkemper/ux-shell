@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { 
   Search, 
   LayoutGrid, 
@@ -49,12 +49,20 @@ export default function CatalogPage() {
     setTypeFilter,
     getFilteredAssets,
     getHierarchicalAssets,
+    addAsset,
     updateAsset,
     assets,
   } = useCatalogStore()
   const { pinnedItems, pinItem, unpinItem } = useSidebarStore()
   const { openTab, openPageTab } = useTabStore()
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['ws1', 'ws2'])) // Default: expand all workspaces
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['ws_analytics', 'ws_marketing', 'ws_platform'])) // Default: expand all workspaces
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false)
+  const [moveTarget, setMoveTarget] = useState<Asset | null>(null)
+  const [moveDestinationId, setMoveDestinationId] = useState('')
+  const [blockedMoveIds, setBlockedMoveIds] = useState<Set<string>>(new Set())
+  const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false)
+  const [folderParent, setFolderParent] = useState<Asset | null>(null)
+  const [folderName, setFolderName] = useState('')
 
   const hierarchicalAssets = getHierarchicalAssets()
 
@@ -114,6 +122,57 @@ export default function CatalogPage() {
     }
     return undefined
   }
+
+  const getDescendantIds = (asset: Asset): string[] => {
+    const result: string[] = []
+    const traverse = (node: Asset) => {
+      if (!node.children) return
+      for (const child of node.children) {
+        result.push(child.id)
+        traverse(child)
+      }
+    }
+    traverse(asset)
+    return result
+  }
+
+  const getMoveDestinations = () => {
+    const destinations: { id: string; label: string; type: AssetType }[] = []
+    const walk = (node: Asset, path: string[]) => {
+      if (node.type === 'workspace' || node.type === 'folder') {
+        destinations.push({
+          id: node.id,
+          label: [...path, node.name].join(' / '),
+          type: node.type,
+        })
+      }
+      if (node.children) {
+        const nextPath = node.type === 'workspace' ? [node.name] : [...path, node.name]
+        node.children.forEach((child) => walk(child, nextPath))
+      }
+    }
+    assets.forEach((asset) => walk(asset, []))
+    return destinations
+  }
+
+  const openMoveDialog = (asset: Asset, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    const fullAsset = findAssetInTree(assets, asset.id) ?? asset
+    const descendants = getDescendantIds(fullAsset)
+    setBlockedMoveIds(new Set([asset.id, ...descendants]))
+    setMoveTarget(asset)
+    setMoveDestinationId(asset.parentId ?? '')
+    setIsMoveDialogOpen(true)
+  }
+
+  const openFolderDialog = (asset: Asset, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    setFolderParent(asset)
+    setFolderName('')
+    setIsFolderDialogOpen(true)
+  }
+
+  const moveDestinations = useMemo(() => getMoveDestinations(), [assets])
 
   // Recursive function to render assets in hierarchy
   const renderAssetRow = (asset: Asset, level: number = 0, parentPath: string[] = []): React.ReactNode => {
@@ -197,16 +256,32 @@ export default function CatalogPage() {
                   fill={pinnedItems.some((item) => item.id === asset.id) ? 'currentColor' : 'none'}
                 />
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={(e) => {
-                  e.stopPropagation()
-                }}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                    }}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {(asset.type === 'workspace' || asset.type === 'folder') && (
+                    <DropdownMenuItem onClick={(e) => openFolderDialog(asset, e)}>
+                      New Folder
+                    </DropdownMenuItem>
+                  )}
+                  {asset.type !== 'workspace' && (
+                    <DropdownMenuItem onClick={(e) => openMoveDialog(asset, e)}>
+                      Move
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </td>
         </tr>
@@ -461,6 +536,95 @@ export default function CatalogPage() {
           </div>
         )}
       </div>
+      {isFolderDialogOpen && folderParent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold">New Folder</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Create a folder under {folderParent.name}
+            </p>
+            <div className="mt-4">
+              <label className="mb-2 block text-sm font-medium">Folder name</label>
+              <input
+                type="text"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                placeholder="e.g., Q4 Reporting"
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsFolderDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const name = folderName.trim()
+                  if (!name) return
+                  addAsset({
+                    id: `folder-${Date.now()}`,
+                    name,
+                    type: 'folder',
+                    parentId: folderParent.id,
+                  })
+                  setIsFolderDialogOpen(false)
+                }}
+                disabled={!folderName.trim()}
+              >
+                Create Folder
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isMoveDialogOpen && moveTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold">Move asset</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Move {moveTarget.name} to a new location
+            </p>
+            <div className="mt-4">
+              <label className="mb-2 block text-sm font-medium">Destination</label>
+              <select
+                value={moveDestinationId}
+                onChange={(e) => setMoveDestinationId(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Select destination</option>
+                {moveDestinations
+                  .filter((destination) => !blockedMoveIds.has(destination.id))
+                  .map((destination) => (
+                    <option key={destination.id} value={destination.id}>
+                      {destination.label}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsMoveDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!moveDestinationId) return
+                  updateAsset(moveTarget.id, { parentId: moveDestinationId })
+                  setIsMoveDialogOpen(false)
+                }}
+                disabled={!moveDestinationId || moveDestinationId === moveTarget.parentId}
+              >
+                Move
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

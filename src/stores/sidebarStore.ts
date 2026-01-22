@@ -13,10 +13,28 @@ interface SidebarStore {
   unpinItem: (itemId: string) => void
 }
 
+const LOCAL_PINNED_KEY = 'ux-shell.sidebar.pins'
+
+const loadPinnedItems = (): Asset[] => {
+  if (typeof window === 'undefined') return []
+  const raw = window.sessionStorage.getItem(LOCAL_PINNED_KEY)
+  if (!raw) return []
+  try {
+    return JSON.parse(raw) as Asset[]
+  } catch {
+    return []
+  }
+}
+
+const savePinnedItems = (items: Asset[]) => {
+  if (typeof window === 'undefined') return
+  window.sessionStorage.setItem(LOCAL_PINNED_KEY, JSON.stringify(items))
+}
+
 export const useSidebarStore = create<SidebarStore>((set) => ({
   state: 'expanded',
   flyoutType: null,
-  pinnedItems: [],
+  pinnedItems: loadPinnedItems(),
   toggleCollapse: () =>
     set((state) => ({
       state: state.state === 'expanded' ? 'collapsed' : 'expanded',
@@ -32,12 +50,16 @@ export const useSidebarStore = create<SidebarStore>((set) => ({
       if (state.pinnedItems.some((p) => p.id === item.id)) {
         return state
       }
-      return { pinnedItems: [...state.pinnedItems, item] }
+      const next = [...state.pinnedItems, item]
+      savePinnedItems(next)
+      return { pinnedItems: next }
     }),
   unpinItem: (itemId) =>
-    set((state) => ({
-      pinnedItems: state.pinnedItems.filter((p) => p.id !== itemId),
-    })),
+    set((state) => {
+      const next = state.pinnedItems.filter((p) => p.id !== itemId)
+      savePinnedItems(next)
+      return { pinnedItems: next }
+    }),
 }))
 
 
