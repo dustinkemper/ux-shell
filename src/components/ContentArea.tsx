@@ -6,72 +6,52 @@ import CreateConnectionPage from './pages/CreateConnectionPage'
 import CreatePipelinePage from './pages/CreatePipelinePage'
 import ConnectionDetailPage from './pages/ConnectionDetailPage'
 import PipelineDetailPage from './pages/PipelineDetailPage'
+import type { Tab } from '@/types'
 
 export default function ContentArea() {
   const { tabs, activeTabId } = useTabStore()
   const { getAsset } = useCatalogStore()
-  const activeTab = tabs.find((t) => t.id === activeTabId)
-
-  let content: React.ReactNode
-
-  if (!activeTab) {
-    content = (
-      <div className="flex h-full w-full items-center justify-center bg-white">
-        <div className="text-muted-foreground">No tab selected</div>
-      </div>
-    )
-  } else if (activeTab.pageType) {
-    switch (activeTab.pageType) {
-      case 'catalog':
-        content = <CatalogPage />
-        break
-      case 'asset-type-selector':
-        content = <AssetTypeSelectorPage />
-        break
-      case 'create-connection':
-        content = <CreateConnectionPage />
-        break
-      case 'create-pipeline':
-        content = <CreatePipelinePage />
-        break
-      default:
-        content = (
-          <div className="flex h-full w-full items-center justify-center bg-white">
-            <div className="flex flex-col items-center gap-4">
-              <h2 className="text-2xl font-semibold">{activeTab.label}</h2>
-              <p className="text-muted-foreground">
-                Content for {activeTab.label} will be displayed here
-              </p>
+  const getTabContent = (tab: Tab): React.ReactNode => {
+    if (tab.pageType) {
+      switch (tab.pageType) {
+        case 'catalog':
+          return <CatalogPage />
+        case 'asset-type-selector':
+          return <AssetTypeSelectorPage />
+        case 'create-connection':
+          return <CreateConnectionPage />
+        case 'create-pipeline':
+          return <CreatePipelinePage />
+        default:
+          return (
+            <div className="flex h-full w-full items-center justify-center bg-white">
+              <div className="flex flex-col items-center gap-4">
+                <h2 className="text-2xl font-semibold">{tab.label}</h2>
+                <p className="text-muted-foreground">
+                  Content for {tab.label} will be displayed here
+                </p>
+              </div>
             </div>
-          </div>
-        )
-        break
+          )
+      }
     }
-  } else if (activeTab.assetId) {
-    const asset = getAsset(activeTab.assetId)
-    if (asset?.type === 'connection') {
-      content = <ConnectionDetailPage connection={asset} />
-    } else if (asset?.type === 'pipeline') {
-      content = <PipelineDetailPage pipeline={asset} />
-    } else {
-      content = (
-        <div className="flex h-full w-full items-center justify-center bg-white">
-          <div className="flex flex-col items-center gap-4">
-            <h2 className="text-2xl font-semibold">{activeTab.label}</h2>
-            <p className="text-muted-foreground">
-              Content for {activeTab.label} will be displayed here
-            </p>
-          </div>
-        </div>
-      )
+
+    if (tab.assetId) {
+      const asset = getAsset(tab.assetId)
+      if (asset?.type === 'connection') {
+        return <ConnectionDetailPage connection={asset} />
+      }
+      if (asset?.type === 'pipeline') {
+        return <PipelineDetailPage pipeline={asset} />
+      }
     }
-  } else {
-    content = (
+
+    return (
       <div className="flex h-full w-full items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-4">
-          <h2 className="text-2xl font-semibold">{activeTab.label}</h2>
+          <h2 className="text-2xl font-semibold">{tab.label}</h2>
           <p className="text-muted-foreground">
-            Content for {activeTab.label} will be displayed here
+            Content for {tab.label} will be displayed here
           </p>
         </div>
       </div>
@@ -80,7 +60,22 @@ export default function ContentArea() {
 
   return (
     <div className="flex min-h-0 flex-1 w-full overflow-hidden">
-      <div className="h-full w-full min-h-0">{content}</div>
+      <div className="h-full w-full min-h-0">
+        {tabs.length === 0 ? (
+          <div className="flex h-full w-full items-center justify-center bg-white">
+            <div className="text-muted-foreground">No tab selected</div>
+          </div>
+        ) : (
+          tabs.map((tab) => (
+            <div
+              key={tab.id}
+              className={tab.id === activeTabId ? 'h-full w-full' : 'hidden h-full w-full'}
+            >
+              {getTabContent(tab)}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   )
 }

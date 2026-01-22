@@ -90,26 +90,29 @@ const assetTypes: AssetTypeOption[] = [
 ]
 
 export default function AssetTypeSelectorPage() {
-  const { activeTabId, renameTab, setTabIcon, setTabPage } = useTabStore()
+  const { tabs, activeTabId, renameTab, setTabIcon, setTabPage } = useTabStore()
   const [step, setStep] = useState<CreateStep>('asset-type')
   const [selectedAssetType, setSelectedAssetType] = useState<AssetType | null>(null)
 
+  const activeTab = tabs.find((tab) => tab.id === activeTabId)
+
   useEffect(() => {
     if (!activeTabId) return
+    if (activeTab?.pageType !== 'asset-type-selector') return
     renameTab(activeTabId, 'Create New')
-  }, [activeTabId, renameTab])
+  }, [activeTabId, activeTab?.pageType, renameTab])
 
   const handleSelectAssetType = (type: AssetType) => {
     setSelectedAssetType(type)
-    if (activeTabId) {
+    if (activeTabId && activeTab?.pageType === 'asset-type-selector') {
       setTabIcon(activeTabId, type)
     }
     if (type === 'connection') {
-      if (activeTabId) {
+      if (activeTabId && activeTab?.pageType === 'asset-type-selector') {
         setTabPage(activeTabId, 'create-connection', 'Create Connection', 'connection')
       }
     } else if (type === 'pipeline') {
-      if (activeTabId) {
+      if (activeTabId && activeTab?.pageType === 'asset-type-selector') {
         setTabPage(activeTabId, 'create-pipeline', 'Create Pipeline', 'pipeline')
       }
     } else {

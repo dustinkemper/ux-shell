@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ArrowLeft, ArrowRight, CheckCircle2, Database, Table2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTabStore } from '@/stores/tabStore'
@@ -12,7 +12,7 @@ const generateMockTables = (connectionId: string): TableType[] => {
   return [
     {
       id: `${connectionId}-table-1`,
-      name: 'users',
+      name: 'customers',
       datatype: 'PostgreSQL',
       primaryKeyColumns: ['id'],
       rowCount: 15420,
@@ -54,7 +54,7 @@ const generateMockTables = (connectionId: string): TableType[] => {
 
 export default function CreatePipelinePage() {
   const { closeTab, activeTabId, setTabAsset, setTabPage } = useTabStore()
-  const { addAsset, getConnections, getAsset } = useCatalogStore()
+  const { addAsset, getConnections, getAsset, getAssetsByType, loadAssets } = useCatalogStore()
   const [currentStep, setCurrentStep] = useState<Step>(1)
   
   // Step 1 data
@@ -68,7 +68,17 @@ export default function CreatePipelinePage() {
   // Step 2 data
   const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(new Set())
   
+  useEffect(() => {
+    void loadAssets()
+  }, [loadAssets])
+
   const connections = getConnections()
+  const workspaces = useMemo(() => getAssetsByType('workspace'), [getAssetsByType])
+  const workspaceNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    workspaces.forEach((item) => map.set(item.id, item.name))
+    return map
+  }, [workspaces])
   const getWorkspaceIdForConnection = (connection: Asset): string | undefined => {
     let currentParentId = connection.parentId
     while (currentParentId) {
@@ -79,12 +89,10 @@ export default function CreatePipelinePage() {
     }
     return undefined
   }
-  const workspaceConnections = useMemo(() => {
-    if (!workspace) return []
-    return connections.filter((conn) => getWorkspaceIdForConnection(conn) === workspace)
-  }, [connections, workspace])
-  const destinationConnections = workspaceConnections.filter(
-    (conn) => conn.id !== sourceConnectionId
+  const destinationConnections = connections.filter(
+    (conn) =>
+      conn.id !== sourceConnectionId &&
+      conn.connectionMetadata?.connectionType === 'data-warehouse'
   )
 
   const sourceConnection = connections.find((c) => c.id === sourceConnectionId)
@@ -164,9 +172,9 @@ export default function CreatePipelinePage() {
       name: pipelineName,
       type: 'pipeline',
       description,
-      parentId: workspace || 'ws1',
+      parentId: workspace || undefined,
       pipelineMetadata,
-      owner: 'Ron Swanson',
+      owner: 'Avery Chen',
       modified: new Date(),
       quality: 82,
     }
@@ -251,8 +259,11 @@ export default function CreatePipelinePage() {
                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   >
                     <option value="">Select workspace</option>
-                    <option value="ws1">Workspace 1</option>
-                    <option value="ws2">Workspace 2</option>
+                    {workspaces.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -273,20 +284,21 @@ export default function CreatePipelinePage() {
                         setHasCustomName(false)
                       }}
                       className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      disabled={!workspace || workspaceConnections.length === 0}
+                      disabled={!workspace || connections.length === 0}
                     >
                       <option value="">Select source connection</option>
-                      {workspaceConnections.map((conn) => (
-                        <option key={conn.id} value={conn.id}>
-                          {conn.name} ({conn.connectionMetadata?.connectionType})
-                        </option>
-                      ))}
+                      {connections.map((conn) => {
+                        const connectionWorkspaceId = getWorkspaceIdForConnection(conn)
+                        const connectionWorkspaceName = connectionWorkspaceId
+                          ? workspaceNameById.get(connectionWorkspaceId)
+                          : undefined
+                        return (
+                          <option key={conn.id} value={conn.id}>
+                            {conn.name} — {connectionWorkspaceName || 'Unassigned'}
+                          </option>
+                        )
+                      })}
                     </select>
-                    {workspace && workspaceConnections.length === 0 && (
-                      <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                        No connections in this workspace yet. Create a connection to continue.
-                      </div>
-                    )}
                   </div>
 
                   <div>
@@ -301,18 +313,24 @@ export default function CreatePipelinePage() {
                         setHasCustomName(false)
                       }}
                       className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      disabled={!sourceConnectionId || workspaceConnections.length === 0}
+                      disabled={!sourceConnectionId || connections.length === 0}
                     >
                       <option value="">Select destination connection</option>
-                      {destinationConnections.map((conn) => (
-                        <option key={conn.id} value={conn.id}>
-                          {conn.name} ({conn.connectionMetadata?.connectionType})
-                        </option>
-                      ))}
+                      {destinationConnections.map((conn) => {
+                        const connectionWorkspaceId = getWorkspaceIdForConnection(conn)
+                        const connectionWorkspaceName = connectionWorkspaceId
+                          ? workspaceNameById.get(connectionWorkspaceId)
+                          : undefined
+                        return (
+                          <option key={conn.id} value={conn.id}>
+                            {conn.name} — {connectionWorkspaceName || 'Unassigned'}
+                          </option>
+                        )
+                      })}
                     </select>
                     {sourceConnectionId && destinationConnections.length === 0 && (
                       <p className="mt-2 text-sm text-muted-foreground">
-                        No available destination connections in this workspace.
+                        No available destination connections.
                       </p>
                     )}
                   </div>
