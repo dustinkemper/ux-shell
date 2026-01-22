@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+.catalog-checkbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #ffffff;
+  display: inline-block;
+  vertical-align: middle;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.catalog-checkbox:checked {
+  border-color: #2563eb;
+  background-color: #2563eb;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3.5 8.5l3 3 6-7'/></svg>");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+}
+
+.catalog-checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

@@ -257,7 +257,14 @@ function TreeItem({
             {item.name}
           </span>
         </button>
-        <div className="absolute right-1 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
+        <div
+          className={cn(
+            'absolute right-1 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1 transition-opacity',
+            isPinned
+              ? 'opacity-100 pointer-events-auto'
+              : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'
+          )}
+        >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

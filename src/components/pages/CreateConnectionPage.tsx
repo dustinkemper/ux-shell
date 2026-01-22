@@ -124,7 +124,7 @@ const warehouseFields: FieldDefinition[] = [
 
 export default function CreateConnectionPage() {
   const { closeTab, activeTabId, setTabAsset, setTabPage } = useTabStore()
-  const { addAsset } = useCatalogStore()
+  const { addAsset, getAssetsByType, loadAssets } = useCatalogStore()
   const [step, setStep] = useState<Step>('type')
   const [selectedConnectionType, setSelectedConnectionType] = useState<ConnectionTypeOption | null>(null)
   const [isTesting, setIsTesting] = useState(false)
@@ -157,6 +157,12 @@ export default function CreateConnectionPage() {
     if (selectedConnectionType.category === 'Business Platforms') return platformFields
     return warehouseFields
   }, [selectedConnectionType])
+
+  useEffect(() => {
+    void loadAssets()
+  }, [loadAssets])
+
+  const workspaces = useMemo(() => getAssetsByType('workspace'), [getAssetsByType])
 
   useEffect(() => {
     return () => {
@@ -382,8 +388,11 @@ export default function CreateConnectionPage() {
                   )}
                 >
                   <option value="">Select workspace</option>
-                  <option value="ws1">Workspace 1</option>
-                  <option value="ws2">Workspace 2</option>
+                  {workspaces.map((workspace) => (
+                    <option key={workspace.id} value={workspace.id}>
+                      {workspace.name}
+                    </option>
+                  ))}
                 </select>
                 {errors.workspace && (
                   <p className="mt-1 text-sm text-red-500">{errors.workspace}</p>

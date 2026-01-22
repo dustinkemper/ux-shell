@@ -132,7 +132,7 @@ export default function CatalogPage() {
           <td className="px-4 py-3">
             <input
               type="checkbox"
-              className="rounded"
+              className="catalog-checkbox"
               onClick={(e) => e.stopPropagation()}
             />
           </td>
@@ -394,7 +394,10 @@ export default function CatalogPage() {
               <thead className="bg-gray-50 border-b border-border">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12">
-                    <input type="checkbox" className="rounded" />
+                    <input
+                      type="checkbox"
+                      className="catalog-checkbox"
+                    />
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Name</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Type</th>

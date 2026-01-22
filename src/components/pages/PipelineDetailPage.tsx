@@ -168,10 +168,10 @@ export default function PipelineDetailPage({
 
   const canvasData = useMemo(() => {
     const tableCount = selectedTables.length
-    const replicationBadge =
+    const replicationLabel =
       tableCount > 0
-        ? `Replication (${tableCount} table${tableCount === 1 ? '' : 's'})`
-        : 'Replication'
+        ? `Tables (${tableCount} table${tableCount === 1 ? '' : 's'})`
+        : 'Tables'
 
     const nodes = [
       {
@@ -184,9 +184,9 @@ export default function PipelineDetailPage({
       },
       {
         id: 'replication',
-        label: 'Replication task',
+        label: replicationLabel,
         type: 'replication' as const,
-        badge: replicationBadge,
+        badge: 'Replication',
         x: 420,
         y: 180,
       },
@@ -194,7 +194,7 @@ export default function PipelineDetailPage({
         id: 'destination',
         label: destinationConnection?.name || 'Destination',
         type: 'destination' as const,
-        badge: formatConnectionType(destinationConnection?.connectionMetadata?.connectionType),
+        badge: 'Warehouse',
         x: 720,
         y: 180,
       },
