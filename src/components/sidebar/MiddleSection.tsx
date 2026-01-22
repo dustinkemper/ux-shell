@@ -36,34 +36,41 @@ export default function MiddleSection() {
       "flex flex-1 flex-col gap-[4px] border-t border-b border-[rgba(0,0,0,0.15)] py-2",
       isCollapsed ? "px-[4px]" : "px-3"
     )}>
-      <Button
-        variant="ghost"
-        size={undefined}
+      <div
         className={cn(
-          "transition-colors font-normal hover:bg-[#e0e5ec] h-[36px]",
-          isCollapsed ? "w-[36px] justify-center" : "w-full justify-start gap-2"
+          "flex items-center",
+          isCollapsed ? "justify-center" : "justify-between"
         )}
-        style={{
-          paddingLeft: isCollapsed ? '4px' : '8px',
-          paddingRight: isCollapsed ? '4px' : '8px',
-          paddingTop: '0px',
-          paddingBottom: '0px'
-        }}
-        onClick={() => setIsExpanded(!isExpanded)}
       >
-        <ChevronRight
+        <Button
+          variant="ghost"
+          size={undefined}
           className={cn(
-            "h-4 w-4 shrink-0 transition-transform",
-            isCollapsed ? "" : "mr-2",
-            isExpanded ? 'rotate-90' : ''
+            "transition-colors font-normal hover:bg-[#e0e5ec] h-[36px]",
+            isCollapsed ? "w-[36px] justify-center" : "w-full justify-start gap-2"
           )}
-        />
-        {!isCollapsed && (
-          <span className="text-xs uppercase text-muted-foreground">
-            Pins
-          </span>
-        )}
-      </Button>
+          style={{
+            paddingLeft: isCollapsed ? '4px' : '8px',
+            paddingRight: isCollapsed ? '4px' : '8px',
+            paddingTop: '0px',
+            paddingBottom: '0px'
+          }}
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <ChevronRight
+            className={cn(
+              "h-4 w-4 shrink-0 transition-transform",
+              isCollapsed ? "" : "mr-2",
+              isExpanded ? 'rotate-90' : ''
+            )}
+          />
+          {!isCollapsed && (
+            <span className="text-xs uppercase text-muted-foreground">
+              Pins
+            </span>
+          )}
+        </Button>
+      </div>
       {isExpanded && (
         <div className="flex max-h-64 flex-col gap-[4px] overflow-y-auto">
           {pinnedItems.length === 0 ? (
