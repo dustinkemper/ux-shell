@@ -172,9 +172,6 @@ export default function CatalogPage() {
             <span className="text-sm">{formatDate(asset.modified)}</span>
           </td>
           <td className="px-4 py-3">
-            <span className="text-sm">{asset.location || '-'}</span>
-          </td>
-          <td className="px-4 py-3">
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
@@ -403,7 +400,6 @@ export default function CatalogPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Type</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Owner</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Modified</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Location</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12"></th>
                 </tr>
               </thead>
