@@ -165,7 +165,7 @@ const fetchAssetsFromSupabase = async (): Promise<Asset[]> => {
 
   const tagsByAsset = new Map<string, string[]>()
   for (const row of tagsRes.data ?? []) {
-    const tagName = row.tags?.name
+    const tagName = row.tags?.[0]?.name
     if (!tagName) continue
     const list = tagsByAsset.get(row.asset_id) ?? []
     list.push(tagName)
@@ -174,7 +174,7 @@ const fetchAssetsFromSupabase = async (): Promise<Asset[]> => {
 
   const collectionsByAsset = new Map<string, string[]>()
   for (const row of collectionsRes.data ?? []) {
-    const collectionName = row.collections?.name
+    const collectionName = row.collections?.[0]?.name
     if (!collectionName) continue
     const list = collectionsByAsset.get(row.asset_id) ?? []
     list.push(collectionName)

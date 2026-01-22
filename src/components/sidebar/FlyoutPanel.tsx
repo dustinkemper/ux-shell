@@ -107,12 +107,10 @@ function StemSvg({
   level,
   ancestorLines,
   isLast,
-  hasChildren,
 }: {
   level: number
   ancestorLines: boolean[]
   isLast: boolean
-  hasChildren: boolean
 }) {
   if (level === 0) return null
 
@@ -214,7 +212,6 @@ function TreeItem({
           level={level}
           ancestorLines={ancestorLines}
           isLast={isLast}
-          hasChildren={hasChildren}
         />
         <div className="relative z-10 h-full" />
         {hasChildren ? (
@@ -368,7 +365,7 @@ function SectionHeader({ title, isExpanded, onToggle }: SectionHeaderProps) {
 }
 
 export default function FlyoutPanel() {
-  const { flyoutType, closeFlyout, pinnedItems } = useSidebarStore()
+  const { flyoutType, closeFlyout } = useSidebarStore()
   const { openTab, openPageTab } = useTabStore()
   const { getHierarchicalAssets, assets } = useCatalogStore()
   const [searchQuery, setSearchQuery] = useState('')
