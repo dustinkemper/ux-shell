@@ -180,7 +180,7 @@ function TreeItem({
   const [isExpanded, setIsExpanded] = useState(false)
   const { pinnedItems, pinItem, unpinItem } = useSidebarStore()
   const isPinned = pinnedItems.some((p) => p.id === item.id)
-  const hasChildren = item.children && item.children.length > 0
+  const hasChildren = (item.children?.length ?? 0) > 0
   const baseIndent = 8
   const indentSize = 40
   const caretWidth = 16

@@ -1,6 +1,5 @@
 import { Bell, GraduationCap, Settings2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { useSidebarStore } from '@/stores/sidebarStore'
 import { cn } from '@/lib/utils'

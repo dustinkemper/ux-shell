@@ -20,7 +20,7 @@ import {
 import { useCatalogStore } from '@/stores/catalogStore'
 import { useSidebarStore } from '@/stores/sidebarStore'
 import { useTabStore } from '@/stores/tabStore'
-import type { Asset, AssetType } from '@/types'
+import type { Asset } from '@/types'
 import { cn } from '@/lib/utils'
 import { getAssetIcon } from '@/lib/iconUtils'
 
