@@ -7,7 +7,7 @@ interface CatalogStore {
   viewMode: 'grid' | 'list'
   activeFilter: 'all' | 'recent' | 'favorites'
   searchQuery: string
-  selectedTypeFilter?: string
+  selectedTypeFilter?: string[]
   selectedOwnerFilter?: string
   selectedTagsFilter?: string[]
   isLoading: boolean
@@ -18,7 +18,7 @@ interface CatalogStore {
   setViewMode: (mode: 'grid' | 'list') => void
   setActiveFilter: (filter: 'all' | 'recent' | 'favorites') => void
   setSearchQuery: (query: string) => void
-  setTypeFilter: (type?: string) => void
+  setTypeFilter: (types?: string[]) => void
   setOwnerFilter: (owner?: string) => void
   setTagsFilter: (tags?: string[]) => void
   loadAssets: () => Promise<void>
@@ -607,7 +607,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   setViewMode: (mode) => set({ viewMode: mode }),
   setActiveFilter: (filter) => set({ activeFilter: filter }),
   setSearchQuery: (query) => set({ searchQuery: query }),
-  setTypeFilter: (type) => set({ selectedTypeFilter: type }),
+  setTypeFilter: (types) => set({ selectedTypeFilter: types }),
   setOwnerFilter: (owner) => set({ selectedOwnerFilter: owner }),
   setTagsFilter: (tags) => set({ selectedTagsFilter: tags }),
   loadAssets: async () => {
@@ -759,8 +759,8 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
     }
 
     // Apply type filter
-    if (selectedTypeFilter) {
-      filtered = filtered.filter((asset) => asset.type === selectedTypeFilter)
+    if (selectedTypeFilter && selectedTypeFilter.length > 0) {
+      filtered = filtered.filter((asset) => selectedTypeFilter.includes(asset.type))
     }
 
     // Apply owner filter
@@ -825,11 +825,11 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
     }
 
     // Apply type filter
-    if (selectedTypeFilter) {
+    if (selectedTypeFilter && selectedTypeFilter.length > 0) {
       const filterByType = (assetList: Asset[]): Asset[] => {
         const result: Asset[] = []
         for (const asset of assetList) {
-          const matchesType = asset.type === selectedTypeFilter
+          const matchesType = selectedTypeFilter.includes(asset.type)
           let filteredChildren: Asset[] = []
           if (asset.children) {
             filteredChildren = filterByType(asset.children)

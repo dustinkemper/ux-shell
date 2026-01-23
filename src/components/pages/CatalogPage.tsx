@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { 
   Search, 
   LayoutGrid, 
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -47,6 +48,11 @@ export default function CatalogPage() {
     setActiveFilter,
     setSearchQuery,
     setTypeFilter,
+    setOwnerFilter,
+    setTagsFilter,
+    selectedTypeFilter,
+    selectedOwnerFilter,
+    selectedTagsFilter,
     getFilteredAssets,
     getHierarchicalAssets,
     addAsset,
@@ -121,6 +127,16 @@ export default function CatalogPage() {
       }
     }
     return undefined
+  }
+
+  const findAncestorIds = (assetId: string): string[] => {
+    const ancestors: string[] = []
+    let current = findAssetInTree(assets, assetId)
+    while (current?.parentId) {
+      ancestors.push(current.parentId)
+      current = findAssetInTree(assets, current.parentId)
+    }
+    return ancestors
   }
 
   const getDescendantIds = (asset: Asset): string[] => {
@@ -314,6 +330,113 @@ export default function CatalogPage() {
   }
 
 
+  const listAssets = useMemo(() => {
+    if (activeFilter === 'all') return hierarchicalAssets
+    if (activeFilter === 'recent') {
+      return getFilteredAssets().map((asset) => stripChildren(asset))
+    }
+    if (activeFilter === 'favorites') {
+      return getFilteredAssets().map((asset) => {
+        if (asset.type === 'workspace' || asset.type === 'folder') {
+          return findAssetInTree(assets, asset.id) ?? asset
+        }
+        return stripChildren(asset)
+      })
+    }
+    return hierarchicalAssets
+  }, [activeFilter, assets, getFilteredAssets, hierarchicalAssets])
+
+  const hasListResults = listAssets.length > 0
+
+  const activeFilterTags = useMemo(() => {
+    const tags: { id: string; label: string; onRemove: () => void }[] = []
+    if (activeFilter !== 'all') {
+      tags.push({
+        id: `view-${activeFilter}`,
+        label: `View: ${activeFilter}`,
+        onRemove: () => setActiveFilter('all'),
+      })
+    }
+    if (selectedTypeFilter && selectedTypeFilter.length > 0) {
+      selectedTypeFilter.forEach((type) => {
+        tags.push({
+          id: `type-${type}`,
+          label: `Type: ${type.replace('-', ' ')}`,
+          onRemove: () => {
+            const next = selectedTypeFilter.filter((item) => item !== type)
+            setTypeFilter(next.length > 0 ? next : undefined)
+          },
+        })
+      })
+    }
+    if (selectedOwnerFilter) {
+      tags.push({
+        id: `owner-${selectedOwnerFilter}`,
+        label: `Owner: ${selectedOwnerFilter}`,
+        onRemove: () => setOwnerFilter(undefined),
+      })
+    }
+    if (selectedTagsFilter && selectedTagsFilter.length > 0) {
+      selectedTagsFilter.forEach((tag) => {
+        tags.push({
+          id: `tag-${tag}`,
+          label: `Tag: ${tag}`,
+          onRemove: () => {
+            const next = selectedTagsFilter.filter((item) => item !== tag)
+            setTagsFilter(next.length > 0 ? next : undefined)
+          },
+        })
+      })
+    }
+    if (searchQuery) {
+      tags.push({
+        id: 'search',
+        label: `Search: ${searchQuery}`,
+        onRemove: () => setSearchQuery(''),
+      })
+    }
+    return tags
+  }, [
+    activeFilter,
+    searchQuery,
+    selectedOwnerFilter,
+    selectedTagsFilter,
+    selectedTypeFilter,
+    setActiveFilter,
+    setOwnerFilter,
+    setSearchQuery,
+    setTagsFilter,
+    setTypeFilter,
+  ])
+
+  useEffect(() => {
+    const hasFilters =
+      activeFilter !== 'all' ||
+      (selectedTypeFilter && selectedTypeFilter.length > 0) ||
+      selectedOwnerFilter ||
+      (selectedTagsFilter && selectedTagsFilter.length > 0) ||
+      searchQuery
+
+    if (!hasFilters) return
+
+    const matches = getFilteredAssets()
+    if (matches.length === 0) return
+
+    const nextExpanded = new Set(expandedItems)
+    matches.forEach((asset) => {
+      findAncestorIds(asset.id).forEach((id) => nextExpanded.add(id))
+    })
+    setExpandedItems(nextExpanded)
+  }, [
+    activeFilter,
+    expandedItems,
+    getFilteredAssets,
+    searchQuery,
+    selectedOwnerFilter,
+    selectedTagsFilter,
+    selectedTypeFilter,
+  ])
+
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header */}
@@ -363,11 +486,14 @@ export default function CatalogPage() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="h-9">
-                Type <ChevronDown className="ml-2 h-4 w-4" />
+                {selectedTypeFilter && selectedTypeFilter.length > 0
+                  ? `Type (${selectedTypeFilter.length})`
+                  : 'Type'}{' '}
+                <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setTypeFilter(undefined)}>All Types</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTypeFilter(undefined)}>Clear Types</DropdownMenuItem>
               {[
                 { id: 'connection', label: 'Connection' },
                 { id: 'pipeline', label: 'Data Pipeline' },
@@ -384,12 +510,22 @@ export default function CatalogPage() {
                 { id: 'workspace', label: 'Workspace' },
                 { id: 'folder', label: 'Folder' },
               ].map((type) => (
-                <DropdownMenuItem
+                <DropdownMenuCheckboxItem
                   key={type.id}
-                  onClick={() => setTypeFilter(type.id)}
+                  checked={selectedTypeFilter?.includes(type.id)}
+                  onCheckedChange={(checked) => {
+                    const next = new Set(selectedTypeFilter ?? [])
+                    if (checked) {
+                      next.add(type.id)
+                    } else {
+                      next.delete(type.id)
+                    }
+                    const result = Array.from(next)
+                    setTypeFilter(result.length > 0 ? result : undefined)
+                  }}
                 >
                   {type.label}
-                </DropdownMenuItem>
+                </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -456,42 +592,72 @@ export default function CatalogPage() {
             </Button>
           </div>
         </div>
+        {activeFilterTags.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {activeFilterTags.map((tag) => (
+              <span
+                key={tag.id}
+                className="flex items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground"
+              >
+                {tag.label}
+                <button
+                  type="button"
+                  className="text-muted-foreground/70 hover:text-foreground"
+                  onClick={tag.onRemove}
+                  aria-label={`Remove ${tag.label}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setActiveFilter('all')
+                setSearchQuery('')
+                setTypeFilter(undefined)
+                setOwnerFilter(undefined)
+                setTagsFilter(undefined)
+              }}
+            >
+              Clear filters
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {viewMode === 'list' ? (
           <div className="w-full">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12">
-                    <input
-                      type="checkbox"
-                      className="catalog-checkbox"
-                    />
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Owner</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Modified</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeFilter === 'all' && hierarchicalAssets.map((asset) => renderAssetRow(asset, 0))}
-                {activeFilter === 'recent' &&
-                  getFilteredAssets().map((asset) => renderAssetRow(stripChildren(asset), 0))}
-                {activeFilter === 'favorites' &&
-                  getFilteredAssets().map((asset) => {
-                    if (asset.type === 'workspace' || asset.type === 'folder') {
-                      const fullAsset = findAssetInTree(assets, asset.id) ?? asset
-                      return renderAssetRow(fullAsset, 0)
-                    }
-                    return renderAssetRow(stripChildren(asset), 0)
-                  })}
-              </tbody>
-            </table>
+            {hasListResults ? (
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-border">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12">
+                      <input
+                        type="checkbox"
+                        className="catalog-checkbox"
+                      />
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Owner</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Modified</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listAssets.map((asset) => renderAssetRow(asset, 0))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+                No results match your filters.
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-4 gap-4 p-6">

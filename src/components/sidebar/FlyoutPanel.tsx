@@ -367,8 +367,14 @@ function SectionHeader({ title, isExpanded, onToggle }: SectionHeaderProps) {
 export default function FlyoutPanel() {
   const { flyoutType, closeFlyout } = useSidebarStore()
   const { openTab, openPageTab } = useTabStore()
-  const { getHierarchicalAssets, assets } = useCatalogStore()
-  const [searchQuery, setSearchQuery] = useState('')
+  const {
+    getHierarchicalAssets,
+    assets,
+    setTypeFilter,
+    setActiveFilter,
+    setSearchQuery: setCatalogSearchQuery,
+  } = useCatalogStore()
+  const [searchQuery, setFlyoutSearchQuery] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<string>('all')
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     'Data integration': true,
@@ -456,6 +462,14 @@ export default function FlyoutPanel() {
 
   const handleItemClick = (item: Asset) => {
     setSelectedItemId(item.id)
+    if (flyoutType === 'more') {
+      setActiveFilter('all')
+      setCatalogSearchQuery('')
+      setTypeFilter([item.type])
+      openPageTab('catalog', 'Catalog', 'Library')
+      closeFlyout()
+      return
+    }
     if (item.type !== 'workspace' && item.type !== 'folder') {
       openTab(item)
     }
@@ -528,7 +542,7 @@ export default function FlyoutPanel() {
               type="text"
               placeholder={getSearchPlaceholder()}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setFlyoutSearchQuery(e.target.value)}
               className="flex-1 bg-transparent text-sm leading-5 text-[#18191a] placeholder:text-[#18191a] outline-none"
             />
           </div>
