@@ -13,6 +13,7 @@ interface CatalogStore {
   isLoading: boolean
   isUsingFallback: boolean
   lastError?: string | null
+  catalogView: 'tree' | 'flat'
   
   // Actions
   setViewMode: (mode: 'grid' | 'list') => void
@@ -21,6 +22,7 @@ interface CatalogStore {
   setTypeFilter: (types?: string[]) => void
   setOwnerFilter: (owner?: string) => void
   setTagsFilter: (tags?: string[]) => void
+  setCatalogView: (view: 'tree' | 'flat') => void
   loadAssets: () => Promise<void>
   
   // CRUD operations
@@ -603,6 +605,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   isLoading: false,
   isUsingFallback: false,
   lastError: null,
+  catalogView: 'tree',
 
   setViewMode: (mode) => set({ viewMode: mode }),
   setActiveFilter: (filter) => set({ activeFilter: filter }),
@@ -610,6 +613,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   setTypeFilter: (types) => set({ selectedTypeFilter: types }),
   setOwnerFilter: (owner) => set({ selectedOwnerFilter: owner }),
   setTagsFilter: (tags) => set({ selectedTagsFilter: tags }),
+  setCatalogView: (view) => set({ catalogView: view }),
   loadAssets: async () => {
     set({ isLoading: true })
     const localAssets = loadLocalAssets()

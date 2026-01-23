@@ -9,6 +9,13 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Waves,
+  Hexagon,
+  Scale,
+  Landmark,
+  HandHelping,
+  NotebookText,
+  type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -31,9 +38,9 @@ const getToolsData = () => {
     'Data integration': [
       { id: 'connection', name: 'Connection', type: 'connection' as AssetType },
       { id: 'pipeline', name: 'Pipeline', type: 'pipeline' as AssetType },
-      { id: 'lakehouse', name: 'Lakehouse clusters', type: 'connection' as AssetType },
+      { id: 'lakehouse', name: 'Lakehouse clusters', type: 'connection' as AssetType, icon: 'waves' },
       { id: 'monitor-view', name: 'Monitor view', type: 'monitor-view' as AssetType },
-      { id: 'api-builder', name: 'API builder', type: 'connection' as AssetType },
+      { id: 'api-builder', name: 'API builder', type: 'connection' as AssetType, icon: 'hexagon' },
     ],
     'Data Prep': [
       { id: 'dataflow', name: 'Data flow', type: 'dataflow' as AssetType },
@@ -42,14 +49,14 @@ const getToolsData = () => {
     ],
     'Data Quality': [
       { id: 'data-product', name: 'Data product', type: 'data-product' as AssetType },
-      { id: 'quality-rules', name: 'Quality rules', type: 'monitor-view' as AssetType },
-      { id: 'policies', name: 'Policies & Regulations', type: 'monitor-view' as AssetType },
+      { id: 'quality-rules', name: 'Quality rules', type: 'monitor-view' as AssetType, icon: 'scale' },
+      { id: 'policies', name: 'Policies & Regulations', type: 'monitor-view' as AssetType, icon: 'landmark' },
       { id: 'glossary', name: 'Glossary', type: 'glossary' as AssetType },
-      { id: 'stewardship', name: 'Stewardship', type: 'monitor-view' as AssetType },
+      { id: 'stewardship', name: 'Stewardship', type: 'monitor-view' as AssetType, icon: 'hand-helping' },
     ],
     Analytics: [
       { id: 'analytics-app', name: 'Analytics app', type: 'analytics-app' as AssetType },
-      { id: 'notes', name: 'Notes', type: 'analytics-app' as AssetType },
+      { id: 'notes', name: 'Notes', type: 'analytics-app' as AssetType, icon: 'notebook-text' },
       { id: 'predict', name: 'Predict', type: 'predict' as AssetType },
     ],
     'AI Assistant': [
@@ -318,18 +325,28 @@ function TreeItem({
 }
 
 interface MenuItemProps {
-  item: Asset
+  item: Asset & { icon?: string }
   onItemClick: (item: Asset) => void
 }
 
+const toolIconMap: Record<string, LucideIcon> = {
+  waves: Waves,
+  hexagon: Hexagon,
+  scale: Scale,
+  landmark: Landmark,
+  'hand-helping': HandHelping,
+  'notebook-text': NotebookText,
+}
+
 function MenuItem({ item, onItemClick }: MenuItemProps) {
+  const Icon = item.icon ? toolIconMap[item.icon] ?? getAssetIcon(item.type) : getAssetIcon(item.type)
   return (
     <div
       className="group flex h-8 min-w-0 items-center gap-2 rounded-[4px] px-1 py-1 transition-colors hover:bg-[#e0e5ec] cursor-pointer"
       onClick={() => onItemClick(item)}
     >
       <div className="flex h-4 w-4 shrink-0 items-center justify-center">
-        <File className="h-4 w-4 text-[#5e656a]" />
+        <Icon className="h-4 w-4 text-[#5e656a]" />
       </div>
       <span className="min-w-0 flex-1 text-sm leading-4 text-[#18191a] whitespace-nowrap overflow-hidden text-ellipsis">
         {item.name}
@@ -466,7 +483,9 @@ export default function FlyoutPanel() {
       setActiveFilter('all')
       setCatalogSearchQuery('')
       setTypeFilter([item.type])
-      openPageTab('catalog', 'Catalog', 'Library')
+      openPageTab('catalog-filtered', `Catalog: ${item.name}`, 'Library', {
+        assetType: item.type,
+      })
       closeFlyout()
       return
     }

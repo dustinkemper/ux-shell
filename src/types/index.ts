@@ -84,6 +84,7 @@ export type TabStatus = 'clean' | 'dirty' | 'error' | null
 
 export type PageType =
   | 'catalog'
+  | 'catalog-filtered'
   | 'asset-type-selector'
   | 'create-connection'
   | 'create-pipeline'
@@ -95,6 +96,9 @@ export interface Tab {
   icon?: string
   assetId?: string
   pageType?: PageType // For page tabs (not asset tabs)
+  pageData?: {
+    assetType?: AssetType
+  }
   isLocked: boolean
   content?: React.ReactNode
   state?: TabState

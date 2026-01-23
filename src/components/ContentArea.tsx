@@ -16,8 +16,15 @@ export default function ContentArea() {
       switch (tab.pageType) {
         case 'catalog':
           return <CatalogPage />
+        case 'catalog-filtered':
+          return (
+            <CatalogPage
+              filteredType={tab.pageData?.assetType}
+              title={tab.label}
+            />
+          )
         case 'asset-type-selector':
-          return <AssetTypeSelectorPage />
+          return <AssetTypeSelectorPage presetType={tab.pageData?.assetType} />
         case 'create-connection':
           return <CreateConnectionPage />
         case 'create-pipeline':
