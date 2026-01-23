@@ -434,7 +434,7 @@ export default function FlyoutPanel() {
   const getData = () => {
     switch (flyoutType) {
       case 'catalog':
-        return getHierarchicalAssets()
+        return assets
       case 'more':
         return getMoreData()
       default:
