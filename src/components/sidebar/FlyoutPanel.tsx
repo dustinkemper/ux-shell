@@ -2,7 +2,6 @@ import {
   ChevronRight,
   Pin,
   MoreHorizontal,
-  File,
   X,
   Search,
   Library,
