@@ -5,11 +5,11 @@ interface TabStore {
   tabs: Tab[]
   activeTabId: string | null
   openTab: (asset: Asset) => void
-  openPageTab: (pageType: PageType, label: string, icon?: string) => void
+  openPageTab: (pageType: PageType, label: string, icon?: string, pageData?: Tab['pageData']) => void
   renameTab: (tabId: string, label: string) => void
   setTabIcon: (tabId: string, icon?: string) => void
   setTabAsset: (tabId: string, asset: Asset) => void
-  setTabPage: (tabId: string, pageType: PageType, label: string, icon?: string) => void
+  setTabPage: (tabId: string, pageType: PageType, label: string, icon?: string, pageData?: Tab['pageData']) => void
   closeTab: (tabId: string) => void
   setActiveTab: (tabId: string) => void
   reorderTabs: (fromIndex: number, toIndex: number) => void
@@ -44,12 +44,23 @@ export const useTabStore = create<TabStore>((set, get) => ({
       activeTabId: newTab.id,
     })
   },
-  openPageTab: (pageType, label, icon) => {
+  openPageTab: (pageType, label, icon, pageData) => {
     const tabs = get().tabs
-    const existingTab = tabs.find((t) => t.pageType === pageType)
-    if (existingTab) {
-      set({ activeTabId: existingTab.id })
-      return
+    if (pageType === 'catalog-filtered') {
+      const requestedType = pageData?.assetType
+      const existingTab = tabs.find(
+        (t) => t.pageType === 'catalog-filtered' && t.pageData?.assetType === requestedType
+      )
+      if (existingTab) {
+        set({ activeTabId: existingTab.id })
+        return
+      }
+    } else {
+      const existingTab = tabs.find((t) => t.pageType === pageType)
+      if (existingTab) {
+        set({ activeTabId: existingTab.id })
+        return
+      }
     }
     const baseId = `page-${pageType}`
     const idInUse = tabs.some((t) => t.id === baseId)
@@ -59,6 +70,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
       label,
       pageType,
       icon,
+      pageData,
       isLocked: false,
     }
     set({
@@ -95,7 +107,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
       ),
     }))
   },
-  setTabPage: (tabId, pageType, label, icon) => {
+  setTabPage: (tabId, pageType, label, icon, pageData) => {
     set((state) => ({
       tabs: state.tabs.map((tab) =>
         tab.id === tabId
@@ -105,6 +117,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
               pageType,
               assetId: undefined,
               icon,
+              pageData,
             }
           : tab
       ),

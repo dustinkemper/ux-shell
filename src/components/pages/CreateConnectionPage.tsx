@@ -232,7 +232,6 @@ export default function CreateConnectionPage() {
       parentId: connectionForm.workspace || 'ws1',
       owner: 'Ron Swanson',
       modified: new Date(),
-      quality: 82,
       connectionMetadata: {
         connectionType: selectedConnectionType.connectionType,
         host: connectionForm.host || undefined,
@@ -294,7 +293,7 @@ export default function CreateConnectionPage() {
   return (
     <div className="relative flex h-full flex-col bg-white">
       {showTestToast && (
-        <div className="absolute right-6 top-6 z-50 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+        <div className="absolute left-1/2 top-6 z-50 -translate-x-1/2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
           <div className="flex items-center gap-2 text-sm font-medium text-emerald-700">
             <CheckCircle2 className="h-4 w-4" />
             Connection test successful

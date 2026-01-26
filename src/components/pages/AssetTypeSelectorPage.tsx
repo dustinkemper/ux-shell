@@ -89,7 +89,11 @@ const assetTypes: AssetTypeOption[] = [
   },
 ]
 
-export default function AssetTypeSelectorPage() {
+interface AssetTypeSelectorPageProps {
+  presetType?: AssetType
+}
+
+export default function AssetTypeSelectorPage({ presetType }: AssetTypeSelectorPageProps) {
   const { tabs, activeTabId, renameTab, setTabIcon, setTabPage } = useTabStore()
   const [step, setStep] = useState<CreateStep>('asset-type')
   const [selectedAssetType, setSelectedAssetType] = useState<AssetType | null>(null)
@@ -101,6 +105,11 @@ export default function AssetTypeSelectorPage() {
     if (activeTab?.pageType !== 'asset-type-selector') return
     renameTab(activeTabId, 'Create New')
   }, [activeTabId, activeTab?.pageType, renameTab])
+
+  useEffect(() => {
+    if (!presetType) return
+    handleSelectAssetType(presetType)
+  }, [presetType])
 
   const handleSelectAssetType = (type: AssetType) => {
     setSelectedAssetType(type)

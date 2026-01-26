@@ -7,20 +7,22 @@ interface CatalogStore {
   viewMode: 'grid' | 'list'
   activeFilter: 'all' | 'recent' | 'favorites'
   searchQuery: string
-  selectedTypeFilter?: string
+  selectedTypeFilter?: string[]
   selectedOwnerFilter?: string
   selectedTagsFilter?: string[]
   isLoading: boolean
   isUsingFallback: boolean
   lastError?: string | null
+  catalogView: 'tree' | 'flat'
   
   // Actions
   setViewMode: (mode: 'grid' | 'list') => void
   setActiveFilter: (filter: 'all' | 'recent' | 'favorites') => void
   setSearchQuery: (query: string) => void
-  setTypeFilter: (type?: string) => void
+  setTypeFilter: (types?: string[]) => void
   setOwnerFilter: (owner?: string) => void
   setTagsFilter: (tags?: string[]) => void
+  setCatalogView: (view: 'tree' | 'flat') => void
   loadAssets: () => Promise<void>
   
   // CRUD operations
@@ -47,12 +49,14 @@ const LOCAL_PENDING_KEY = 'ux-shell.catalog.pendingOps'
 
 const toSerializableAsset = (asset: Asset): Asset => ({
   ...asset,
+  createdAt: asset.createdAt ? new Date(asset.createdAt).toISOString() as unknown as Date : undefined,
   modified: asset.modified ? new Date(asset.modified).toISOString() as unknown as Date : undefined,
   children: asset.children ? asset.children.map(toSerializableAsset) : undefined,
 })
 
 const fromSerializableAsset = (asset: Asset): Asset => ({
   ...asset,
+  createdAt: asset.createdAt ? new Date(asset.createdAt) : undefined,
   modified: asset.modified ? new Date(asset.modified) : undefined,
   children: asset.children ? asset.children.map(fromSerializableAsset) : undefined,
 })
@@ -143,6 +147,17 @@ const mergeFavoriteTags = (assets: Asset[], favorites: Set<string>): Asset[] => 
   })
 }
 
+const ensureCreatedAt = (assets: Asset[]): Asset[] => {
+  return assets.map((asset) => {
+    const createdAt = asset.createdAt ?? asset.modified ?? new Date()
+    return {
+      ...asset,
+      createdAt,
+      children: asset.children ? ensureCreatedAt(asset.children) : asset.children,
+    }
+  })
+}
+
 const tagIdForName = (name: string) =>
   `tag_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`
 
@@ -156,9 +171,8 @@ const assetToRecord = (asset: Asset) => ({
   description: asset.description ?? null,
   parent_id: asset.parentId ?? null,
   owner: asset.owner ?? null,
-  quality: asset.quality ?? null,
+  created_at: asset.createdAt ? asset.createdAt.toISOString() : null,
   modified_at: asset.modified ? asset.modified.toISOString() : new Date().toISOString(),
-  location: asset.location ?? null,
   is_pinned: asset.isPinned ?? false,
   icon: asset.icon ?? null,
 })
@@ -176,9 +190,8 @@ const fetchAssetsFromSupabase = async (): Promise<Asset[]> => {
     description: record.description ?? undefined,
     parentId: record.parent_id ?? undefined,
     owner: record.owner ?? undefined,
-    quality: record.quality ?? undefined,
+    createdAt: record.created_at ? new Date(record.created_at) : undefined,
     modified: record.modified_at ? new Date(record.modified_at) : undefined,
-    location: record.location ?? undefined,
     isPinned: record.is_pinned ?? undefined,
     icon: record.icon ?? undefined,
   })) as Asset[]
@@ -333,8 +346,6 @@ const initialAssets: Asset[] = [
     type: 'workspace',
     owner: 'Avery Chen',
     modified: new Date('2025-11-17'),
-    location: 'Data Platform',
-    quality: 92,
     isPinned: true,
     children: [
       {
@@ -344,8 +355,6 @@ const initialAssets: Asset[] = [
         parentId: 'ws_analytics',
         owner: 'Avery Chen',
         modified: new Date('2025-11-15'),
-        location: 'Data Platform',
-        quality: 86,
         children: [
           {
             id: 'app_exec_dashboard',
@@ -354,8 +363,6 @@ const initialAssets: Asset[] = [
             parentId: 'fd_exec_reporting',
             owner: 'Avery Chen',
             modified: new Date('2025-11-14'),
-            location: 'Data Platform',
-            quality: 91,
           },
           {
             id: 'pipe_kpi_rollup',
@@ -364,8 +371,6 @@ const initialAssets: Asset[] = [
             parentId: 'fd_exec_reporting',
             owner: 'Avery Chen',
             modified: new Date('2025-11-13'),
-            location: 'Data Platform',
-            quality: 88,
           },
         ],
       },
@@ -376,8 +381,6 @@ const initialAssets: Asset[] = [
         parentId: 'ws_analytics',
         owner: 'Avery Chen',
         modified: new Date('2025-11-16'),
-        location: 'Data Platform',
-        quality: 93,
         connectionMetadata: {
           connectionType: 'data-warehouse',
           account: 'acme',
@@ -395,8 +398,6 @@ const initialAssets: Asset[] = [
         parentId: 'ws_analytics',
         owner: 'Avery Chen',
         modified: new Date('2025-11-12'),
-        location: 'Data Platform',
-        quality: 86,
       },
     ],
   },
@@ -406,8 +407,6 @@ const initialAssets: Asset[] = [
     type: 'workspace',
     owner: 'Jordan Lee',
     modified: new Date('2025-11-16'),
-    location: 'GTM',
-    quality: 88,
     children: [
       {
         id: 'fd_campaign_perf',
@@ -416,8 +415,6 @@ const initialAssets: Asset[] = [
         parentId: 'ws_marketing',
         owner: 'Jordan Lee',
         modified: new Date('2025-11-15'),
-        location: 'GTM',
-        quality: 84,
         children: [
           {
             id: 'app_campaign_perf',
@@ -426,8 +423,6 @@ const initialAssets: Asset[] = [
             parentId: 'fd_campaign_perf',
             owner: 'Jordan Lee',
             modified: new Date('2025-11-12'),
-            location: 'GTM',
-            quality: 87,
           },
           {
             id: 'pipe_ad_spend',
@@ -436,8 +431,6 @@ const initialAssets: Asset[] = [
             parentId: 'fd_campaign_perf',
             owner: 'Jordan Lee',
             modified: new Date('2025-11-13'),
-            location: 'GTM',
-            quality: 87,
           },
         ],
       },
@@ -448,8 +441,6 @@ const initialAssets: Asset[] = [
         parentId: 'ws_marketing',
         owner: 'Jordan Lee',
         modified: new Date('2025-11-14'),
-        location: 'GTM',
-        quality: 85,
         connectionMetadata: {
           connectionType: 'api',
           apiKey: 'hubspot_api_key',
@@ -465,8 +456,6 @@ const initialAssets: Asset[] = [
         parentId: 'ws_marketing',
         owner: 'Jordan Lee',
         modified: new Date('2025-11-13'),
-        location: 'GTM',
-        quality: 84,
         connectionMetadata: {
           connectionType: 'api',
           apiKey: 'google_ads_key',
@@ -483,8 +472,6 @@ const initialAssets: Asset[] = [
     type: 'workspace',
     owner: 'Priya Patel',
     modified: new Date('2025-11-18'),
-    location: 'Core Systems',
-    quality: 95,
     isPinned: true,
     children: [
       {
@@ -494,8 +481,6 @@ const initialAssets: Asset[] = [
         parentId: 'ws_platform',
         owner: 'Priya Patel',
         modified: new Date('2025-11-17'),
-        location: 'Core Systems',
-        quality: 90,
         children: [
           {
             id: 'pipe_customer_360',
@@ -504,8 +489,6 @@ const initialAssets: Asset[] = [
             parentId: 'fd_core_data',
             owner: 'Priya Patel',
             modified: new Date('2025-11-15'),
-            location: 'Core Systems',
-            quality: 91,
           },
           {
             id: 'pipe_revenue_facts',
@@ -514,8 +497,6 @@ const initialAssets: Asset[] = [
             parentId: 'fd_core_data',
             owner: 'Priya Patel',
             modified: new Date('2025-11-14'),
-            location: 'Core Systems',
-            quality: 90,
           },
         ],
       },
@@ -526,8 +507,6 @@ const initialAssets: Asset[] = [
         parentId: 'ws_platform',
         owner: 'Priya Patel',
         modified: new Date('2025-11-16'),
-        location: 'Core Systems',
-        quality: 89,
         connectionMetadata: {
           connectionType: 'database',
           host: 'billing-db.internal',
@@ -543,8 +522,6 @@ const initialAssets: Asset[] = [
         parentId: 'ws_platform',
         owner: 'Priya Patel',
         modified: new Date('2025-11-18'),
-        location: 'Core Systems',
-        quality: 93,
         connectionMetadata: {
           connectionType: 'data-warehouse',
           account: 'acme',
@@ -603,18 +580,20 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   isLoading: false,
   isUsingFallback: false,
   lastError: null,
+  catalogView: 'tree',
 
   setViewMode: (mode) => set({ viewMode: mode }),
   setActiveFilter: (filter) => set({ activeFilter: filter }),
   setSearchQuery: (query) => set({ searchQuery: query }),
-  setTypeFilter: (type) => set({ selectedTypeFilter: type }),
+  setTypeFilter: (types) => set({ selectedTypeFilter: types }),
   setOwnerFilter: (owner) => set({ selectedOwnerFilter: owner }),
   setTagsFilter: (tags) => set({ selectedTagsFilter: tags }),
+  setCatalogView: (view) => set({ catalogView: view }),
   loadAssets: async () => {
     set({ isLoading: true })
     const localAssets = loadLocalAssets()
     if (!isSupabaseConfigured || !supabase) {
-      const fallbackAssets = localAssets ?? initialAssets
+      const fallbackAssets = ensureCreatedAt(localAssets ?? initialAssets)
       set({
         assets: fallbackAssets,
         isLoading: false,
@@ -628,12 +607,13 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
       const supabaseAssets = await fetchAssetsFromSupabase()
       const nextAssetsRaw = supabaseAssets.length > 0 ? supabaseAssets : localAssets ?? initialAssets
       const favoriteIds = localAssets ? collectFavoriteIds(localAssets) : new Set<string>()
-      const nextAssets = favoriteIds.size > 0 ? mergeFavoriteTags(nextAssetsRaw, favoriteIds) : nextAssetsRaw
+      const mergedFavorites = favoriteIds.size > 0 ? mergeFavoriteTags(nextAssetsRaw, favoriteIds) : nextAssetsRaw
+      const nextAssets = ensureCreatedAt(mergedFavorites)
       set({ assets: nextAssets, isLoading: false, isUsingFallback: false, lastError: null })
       saveLocalAssets(nextAssets)
       await syncPendingOps()
     } catch (error) {
-      const fallbackAssets = localAssets ?? initialAssets
+      const fallbackAssets = ensureCreatedAt(localAssets ?? initialAssets)
       const message = error instanceof Error ? error.message : 'Unknown error'
       set({
         assets: fallbackAssets,
@@ -649,9 +629,9 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   addAsset: (asset) => {
     const newAsset = {
       ...asset,
+      createdAt: asset.createdAt ?? new Date(),
       modified: new Date(),
       owner: asset.owner ?? 'Avery Chen', // Default owner for new assets
-      quality: asset.quality ?? 82, // Default quality
     }
     const nextAssets = newAsset.parentId
       ? insertChild(get().assets, newAsset.parentId, newAsset)
@@ -759,8 +739,8 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
     }
 
     // Apply type filter
-    if (selectedTypeFilter) {
-      filtered = filtered.filter((asset) => asset.type === selectedTypeFilter)
+    if (selectedTypeFilter && selectedTypeFilter.length > 0) {
+      filtered = filtered.filter((asset) => selectedTypeFilter.includes(asset.type))
     }
 
     // Apply owner filter
@@ -825,11 +805,11 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
     }
 
     // Apply type filter
-    if (selectedTypeFilter) {
+    if (selectedTypeFilter && selectedTypeFilter.length > 0) {
       const filterByType = (assetList: Asset[]): Asset[] => {
         const result: Asset[] = []
         for (const asset of assetList) {
-          const matchesType = asset.type === selectedTypeFilter
+          const matchesType = selectedTypeFilter.includes(asset.type)
           let filteredChildren: Asset[] = []
           if (asset.children) {
             filteredChildren = filterByType(asset.children)

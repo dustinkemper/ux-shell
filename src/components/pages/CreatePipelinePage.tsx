@@ -159,10 +159,16 @@ export default function CreatePipelinePage() {
       return
     }
 
+    const selectedIds = Array.from(selectedTableIds)
+    const selectedTableNames = selectedIds
+      .map((tableId) => tables.find((table) => table.id === tableId)?.name)
+      .filter((name): name is string => Boolean(name))
+
     const pipelineMetadata: PipelineMetadata = {
       sourceConnectionId,
       destinationConnectionId,
-      selectedTableIds: Array.from(selectedTableIds),
+      selectedTableIds: selectedIds,
+      selectedTableNames,
       description,
       workspace,
     }
@@ -176,7 +182,6 @@ export default function CreatePipelinePage() {
       pipelineMetadata,
       owner: 'Avery Chen',
       modified: new Date(),
-      quality: 82,
     }
 
     addAsset(newPipeline)

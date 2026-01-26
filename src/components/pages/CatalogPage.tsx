@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { 
   Search, 
   LayoutGrid, 
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -38,7 +39,12 @@ const formatDate = (date?: Date): string => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export default function CatalogPage() {
+interface CatalogPageProps {
+  filteredType?: AssetType
+  title?: string
+}
+
+export default function CatalogPage({ filteredType, title }: CatalogPageProps) {
   const {
     viewMode,
     activeFilter,
@@ -47,11 +53,18 @@ export default function CatalogPage() {
     setActiveFilter,
     setSearchQuery,
     setTypeFilter,
+    setOwnerFilter,
+    setTagsFilter,
+    selectedTypeFilter,
+    selectedOwnerFilter,
+    selectedTagsFilter,
     getFilteredAssets,
     getHierarchicalAssets,
     addAsset,
     updateAsset,
     assets,
+    catalogView,
+    setCatalogView,
   } = useCatalogStore()
   const { pinnedItems, pinItem, unpinItem } = useSidebarStore()
   const { openTab, openPageTab } = useTabStore()
@@ -65,6 +78,11 @@ export default function CatalogPage() {
   const [folderName, setFolderName] = useState('')
 
   const hierarchicalAssets = getHierarchicalAssets()
+  const isFilteredView = Boolean(filteredType)
+  const effectiveActiveFilter = isFilteredView ? 'all' : activeFilter
+  const effectiveViewMode = isFilteredView ? 'list' : viewMode
+  const [filteredSearchQuery, setFilteredSearchQuery] = useState('')
+  const effectiveSearchQuery = isFilteredView ? filteredSearchQuery : searchQuery
 
 
   const toggleExpanded = (assetId: string) => {
@@ -123,6 +141,29 @@ export default function CatalogPage() {
     return undefined
   }
 
+  const findAncestorIds = (assetId: string): string[] => {
+    const ancestors: string[] = []
+    let current = findAssetInTree(assets, assetId)
+    while (current?.parentId) {
+      ancestors.push(current.parentId)
+      current = findAssetInTree(assets, current.parentId)
+    }
+    return ancestors
+  }
+
+  const getParentPathLabel = (assetId: string): string => {
+    const path: string[] = []
+    let current = findAssetInTree(assets, assetId)
+    while (current?.parentId) {
+      const parent = findAssetInTree(assets, current.parentId)
+      if (!parent) break
+      path.unshift(parent.name)
+      current = parent
+    }
+    return path.join(' / ')
+  }
+
+
   const getDescendantIds = (asset: Asset): string[] => {
     const result: string[] = []
     const traverse = (node: Asset) => {
@@ -178,7 +219,8 @@ export default function CatalogPage() {
   const renderAssetRow = (asset: Asset, level: number = 0, parentPath: string[] = []): React.ReactNode => {
     const isExpanded = expandedItems.has(asset.id)
     const hasChildren = asset.children && asset.children.length > 0
-    const indentLevel = level * 24 // 24px per level
+    const isFlatView = catalogView === 'flat' || isFilteredView
+    const indentLevel = isFlatView ? 0 : level * 24 // 24px per level
     const currentPath = [...parentPath, asset.id]
 
     return (
@@ -197,7 +239,7 @@ export default function CatalogPage() {
           </td>
           <td className="px-4 py-3" style={{ paddingLeft: `${16 + indentLevel}px` }}>
             <div className="flex items-center gap-2">
-              {hasChildren ? (
+              {!isFlatView && hasChildren ? (
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
@@ -224,6 +266,13 @@ export default function CatalogPage() {
           <td className="px-4 py-3">
             <span className="text-sm capitalize">{asset.type.replace('-', ' ')}</span>
           </td>
+          {(catalogView === 'flat' || isFilteredView) && (
+            <td className="px-4 py-3">
+              <span className="text-sm text-muted-foreground">
+                {getParentPathLabel(asset.id) || '-'}
+              </span>
+            </td>
+          )}
           <td className="px-4 py-3">
             <span className="text-sm">{asset.owner || '-'}</span>
           </td>
@@ -285,7 +334,7 @@ export default function CatalogPage() {
             </div>
           </td>
         </tr>
-        {hasChildren && isExpanded && asset.children && (
+        {!isFlatView && hasChildren && isExpanded && asset.children && (
           <>
             {asset.children.map((child) => renderAssetRow(child, level + 1, currentPath))}
           </>
@@ -310,8 +359,203 @@ export default function CatalogPage() {
   }
 
   const handleCreateNew = () => {
+    if (isFilteredView && filteredType) {
+      if (filteredType === 'connection') {
+        openPageTab('create-connection', 'Create Connection', 'connection')
+        return
+      }
+      if (filteredType === 'pipeline') {
+        openPageTab('create-pipeline', 'Create Pipeline', 'pipeline')
+        return
+      }
+      openPageTab('asset-type-selector', 'Create New', 'Plus', { assetType: filteredType })
+      return
+    }
     openPageTab('asset-type-selector', 'Create New', 'Plus')
   }
+
+  const createButtonLabel = isFilteredView && filteredType
+    ? `Create new ${filteredType.replace('-', ' ')}`
+    : 'Create new'
+
+
+  const flattenAssets = (assetList: Asset[]): Asset[] => {
+    const result: Asset[] = []
+    for (const asset of assetList) {
+      result.push(asset)
+      if (asset.children) {
+        result.push(...flattenAssets(asset.children))
+      }
+    }
+    return result
+  }
+
+  const flatFilteredAssets = useMemo(() => {
+    if (!filteredType) return []
+    let flattened = flattenAssets(assets).filter((asset) => asset.type === filteredType)
+    if (effectiveSearchQuery) {
+      const loweredQuery = effectiveSearchQuery.toLowerCase()
+      flattened = flattened.filter((asset) =>
+        asset.name.toLowerCase().includes(loweredQuery)
+      )
+    }
+    if (effectiveActiveFilter === 'recent') {
+      flattened = [...flattened].sort((a, b) => {
+        const dateA = a.modified?.getTime() ?? 0
+        const dateB = b.modified?.getTime() ?? 0
+        return dateB - dateA
+      })
+    }
+    if (effectiveActiveFilter === 'favorites') {
+      flattened = flattened.filter((asset) => asset.tags?.includes('favorite'))
+    }
+    return flattened.map((asset) => stripChildren(asset))
+  }, [assets, effectiveActiveFilter, effectiveSearchQuery, filteredType])
+
+  const listAssets = useMemo(() => {
+    if (isFilteredView) {
+      return flatFilteredAssets
+    }
+    if (catalogView === 'flat') {
+      return getFilteredAssets().map((asset) => stripChildren(asset))
+    }
+    if (activeFilter === 'all') return hierarchicalAssets
+    if (activeFilter === 'recent') {
+      return getFilteredAssets().map((asset) => stripChildren(asset))
+    }
+    if (activeFilter === 'favorites') {
+      return getFilteredAssets().map((asset) => {
+        if (asset.type === 'workspace' || asset.type === 'folder') {
+          return findAssetInTree(assets, asset.id) ?? asset
+        }
+        return stripChildren(asset)
+      })
+    }
+    return hierarchicalAssets
+  }, [activeFilter, assets, catalogView, flatFilteredAssets, getFilteredAssets, hierarchicalAssets, isFilteredView])
+
+  const hasListResults = listAssets.length > 0
+
+  const activeFilterTags = useMemo(() => {
+    const tags: { id: string; label: string; onRemove?: () => void }[] = []
+    if (isFilteredView || catalogView === 'flat') {
+      tags.push({
+        id: 'view-flat',
+        label: 'View: flat',
+        onRemove: () => {
+          if (!isFilteredView) {
+            setCatalogView('tree')
+          }
+        },
+      })
+    } else if (activeFilter !== 'all') {
+      tags.push({
+        id: `view-${activeFilter}`,
+        label: `View: ${activeFilter}`,
+        onRemove: () => setActiveFilter('all'),
+      })
+    }
+    if (isFilteredView && filteredType) {
+      tags.push({
+        id: `type-${filteredType}`,
+        label: `Type: ${filteredType.replace('-', ' ')}`,
+      })
+    } else if (selectedTypeFilter && selectedTypeFilter.length > 0) {
+      selectedTypeFilter.forEach((type) => {
+        tags.push({
+          id: `type-${type}`,
+          label: `Type: ${type.replace('-', ' ')}`,
+          onRemove: () => {
+            const next = selectedTypeFilter.filter((item) => item !== type)
+            setTypeFilter(next.length > 0 ? next : undefined)
+          },
+        })
+      })
+    }
+    if (selectedOwnerFilter) {
+      tags.push({
+        id: `owner-${selectedOwnerFilter}`,
+        label: `Owner: ${selectedOwnerFilter}`,
+        onRemove: () => setOwnerFilter(undefined),
+      })
+    }
+    if (selectedTagsFilter && selectedTagsFilter.length > 0) {
+      selectedTagsFilter.forEach((tag) => {
+        tags.push({
+          id: `tag-${tag}`,
+          label: `Tag: ${tag}`,
+          onRemove: () => {
+            const next = selectedTagsFilter.filter((item) => item !== tag)
+            setTagsFilter(next.length > 0 ? next : undefined)
+          },
+        })
+      })
+    }
+    if (effectiveSearchQuery) {
+      tags.push({
+        id: 'search',
+        label: `Search: ${effectiveSearchQuery}`,
+        onRemove: () => {
+          if (isFilteredView) {
+            setFilteredSearchQuery('')
+          } else {
+            setSearchQuery('')
+          }
+        },
+      })
+    }
+    return tags
+  }, [
+    activeFilter,
+    catalogView,
+    effectiveSearchQuery,
+    isFilteredView,
+    filteredType,
+    selectedOwnerFilter,
+    selectedTagsFilter,
+    selectedTypeFilter,
+    setActiveFilter,
+    setCatalogView,
+    setOwnerFilter,
+    setSearchQuery,
+    setTagsFilter,
+    setTypeFilter,
+    setFilteredSearchQuery,
+  ])
+
+  useEffect(() => {
+    if (isFilteredView) return
+    const hasFilters =
+      catalogView === 'flat' ||
+      isFilteredView ||
+      activeFilter !== 'all' ||
+      (selectedTypeFilter && selectedTypeFilter.length > 0) ||
+      selectedOwnerFilter ||
+      (selectedTagsFilter && selectedTagsFilter.length > 0) ||
+      effectiveSearchQuery
+
+    if (!hasFilters) return
+
+    const matches = getFilteredAssets()
+    if (matches.length === 0) return
+
+    const nextExpanded = new Set(expandedItems)
+    matches.forEach((asset) => {
+      findAncestorIds(asset.id).forEach((id) => nextExpanded.add(id))
+    })
+    setExpandedItems(nextExpanded)
+  }, [
+    activeFilter,
+    expandedItems,
+    getFilteredAssets,
+    searchQuery,
+    selectedOwnerFilter,
+    selectedTagsFilter,
+    selectedTypeFilter,
+    catalogView,
+    effectiveSearchQuery,
+    isFilteredView,
+  ])
 
 
   return (
@@ -319,33 +563,35 @@ export default function CatalogPage() {
       {/* Header */}
       <div className="border-b border-border bg-white px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Catalog</h1>
+          <h1 className="text-2xl font-semibold">{title || 'Catalog'}</h1>
           <Button
             onClick={handleCreateNew}
             className="bg-green-600 text-white hover:bg-green-700"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Create new
+            {createButtonLabel}
           </Button>
         </div>
 
         {/* Tabs */}
-        <div className="mt-4 flex gap-1 border-b border-border">
-          {(['all', 'recent', 'favorites'] as const).map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setActiveFilter(filter)}
-              className={cn(
-                'px-4 py-2 text-sm font-medium capitalize transition-colors',
-                activeFilter === filter
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {filter === 'all' ? 'All' : filter === 'recent' ? 'Recent' : 'Favorites'}
-            </button>
-          ))}
-        </div>
+        {!isFilteredView && (
+          <div className="mt-4 flex gap-1 border-b border-border">
+            {(['all', 'recent', 'favorites'] as const).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                className={cn(
+                  'px-4 py-2 text-sm font-medium capitalize transition-colors',
+                  activeFilter === filter
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {filter === 'all' ? 'All' : filter === 'recent' ? 'Recent' : 'Favorites'}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Search and Filters */}
         <div className="mt-4 flex items-center gap-4">
@@ -354,20 +600,30 @@ export default function CatalogPage() {
             <input
               type="text"
               placeholder="Search for files"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={effectiveSearchQuery}
+              onChange={(e) =>
+                isFilteredView
+                  ? setFilteredSearchQuery(e.target.value)
+                  : setSearchQuery(e.target.value)
+              }
               className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
             />
           </div>
 
-          <DropdownMenu>
+          {!isFilteredView && (
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="h-9">
-                Type <ChevronDown className="ml-2 h-4 w-4" />
+                {selectedTypeFilter && selectedTypeFilter.length > 0
+                  ? `Type (${selectedTypeFilter.length})`
+                  : 'Type'}{' '}
+                <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setTypeFilter(undefined)}>All Types</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTypeFilter(undefined)}>
+                Clear Types
+              </DropdownMenuItem>
               {[
                 { id: 'connection', label: 'Connection' },
                 { id: 'pipeline', label: 'Data Pipeline' },
@@ -384,17 +640,29 @@ export default function CatalogPage() {
                 { id: 'workspace', label: 'Workspace' },
                 { id: 'folder', label: 'Folder' },
               ].map((type) => (
-                <DropdownMenuItem
+                <DropdownMenuCheckboxItem
                   key={type.id}
-                  onClick={() => setTypeFilter(type.id)}
+                  checked={selectedTypeFilter?.includes(type.id)}
+                  onCheckedChange={(checked) => {
+                    const next = new Set(selectedTypeFilter ?? [])
+                    if (checked) {
+                      next.add(type.id)
+                    } else {
+                      next.delete(type.id)
+                    }
+                    const result = Array.from(next)
+                    setTypeFilter(result.length > 0 ? result : undefined)
+                  }}
                 >
                   {type.label}
-                </DropdownMenuItem>
+                </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          )}
 
-          <DropdownMenu>
+          {!isFilteredView && (
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="h-9">
                 Owner <ChevronDown className="ml-2 h-4 w-4" />
@@ -403,9 +671,11 @@ export default function CatalogPage() {
             <DropdownMenuContent>
               <DropdownMenuItem>All Owners</DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          )}
 
-          <DropdownMenu>
+          {!isFilteredView && (
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="h-9">
                 Tags <ChevronDown className="ml-2 h-4 w-4" />
@@ -414,9 +684,11 @@ export default function CatalogPage() {
             <DropdownMenuContent>
               <DropdownMenuItem>All Tags</DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          )}
 
-          <DropdownMenu>
+          {!isFilteredView && (
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="h-9">
                 More <ChevronDown className="ml-2 h-4 w-4" />
@@ -425,9 +697,11 @@ export default function CatalogPage() {
             <DropdownMenuContent>
               <DropdownMenuItem>More options</DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          )}
 
-          <div className="flex gap-1 border border-border rounded-md p-1">
+          {!isFilteredView && (
+            <div className="flex gap-1 border border-border rounded-md p-1">
             <Button
               variant="ghost"
               size="sm"
@@ -454,44 +728,83 @@ export default function CatalogPage() {
             >
               <LayoutGrid className="h-4 w-4" />
             </Button>
-          </div>
+            </div>
+          )}
         </div>
+        {!isFilteredView && activeFilterTags.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {activeFilterTags.map((tag) => (
+              <span
+                key={tag.id}
+                className="flex items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground"
+              >
+                {tag.label}
+                {tag.onRemove && (
+                  <button
+                    type="button"
+                    className="text-muted-foreground/70 hover:text-foreground"
+                    onClick={tag.onRemove}
+                    aria-label={`Remove ${tag.label}`}
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setActiveFilter('all')
+                setSearchQuery('')
+                setTypeFilter(undefined)
+                setOwnerFilter(undefined)
+                setTagsFilter(undefined)
+                setCatalogView('tree')
+              }}
+            >
+              Clear filters
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        {viewMode === 'list' ? (
+        {effectiveViewMode === 'list' ? (
           <div className="w-full">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12">
-                    <input
-                      type="checkbox"
-                      className="catalog-checkbox"
-                    />
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Owner</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Modified</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeFilter === 'all' && hierarchicalAssets.map((asset) => renderAssetRow(asset, 0))}
-                {activeFilter === 'recent' &&
-                  getFilteredAssets().map((asset) => renderAssetRow(stripChildren(asset), 0))}
-                {activeFilter === 'favorites' &&
-                  getFilteredAssets().map((asset) => {
-                    if (asset.type === 'workspace' || asset.type === 'folder') {
-                      const fullAsset = findAssetInTree(assets, asset.id) ?? asset
-                      return renderAssetRow(fullAsset, 0)
-                    }
-                    return renderAssetRow(stripChildren(asset), 0)
-                  })}
-              </tbody>
-            </table>
+            {hasListResults ? (
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-border">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12">
+                      <input
+                        type="checkbox"
+                        className="catalog-checkbox"
+                      />
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Type</th>
+                    {(catalogView === 'flat' || isFilteredView) && (
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                        Path
+                      </th>
+                    )}
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Owner</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Modified</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-12"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listAssets.map((asset) => renderAssetRow(asset, 0))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+                No results match your filters.
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-4 gap-4 p-6">
