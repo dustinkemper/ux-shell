@@ -180,14 +180,6 @@ export default function ConnectionDetailPage({
                   <span className="text-muted-foreground">Last updated</span>
                   <span>{connection.modified?.toLocaleDateString() || '—'}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Quality</span>
-                  <span>{connection.quality ?? '—'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Location</span>
-                  <span>{connection.location || '—'}</span>
-                </div>
               </div>
             </div>
           </div>

@@ -31,10 +31,9 @@ export interface Asset {
   connectionMetadata?: ConnectionMetadata
   pipelineMetadata?: PipelineMetadata
   // Catalog-specific fields
-  quality?: number
   owner?: string
+  createdAt?: Date
   modified?: Date
-  location?: string
   tags?: string[]
   collections?: string[]
 }
@@ -62,6 +61,7 @@ export interface PipelineMetadata {
   sourceConnectionId: string
   destinationConnectionId: string
   selectedTableIds: string[]
+  selectedTableNames?: string[]
   description?: string
   workspace?: string
 }

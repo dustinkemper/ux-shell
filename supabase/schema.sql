@@ -24,9 +24,7 @@ create table if not exists assets (
   workspace_id text references workspaces(id) on delete set null,
   folder_id text references folders(id) on delete set null,
   owner text,
-  quality integer,
   modified_at timestamptz default now(),
-  location text,
   is_pinned boolean default false,
   icon text,
   created_at timestamptz default now()
@@ -85,30 +83,30 @@ insert into folders (id, name, workspace_id, parent_folder_id) values
 on conflict (id) do nothing;
 
 insert into assets (
-  id, name, type, description, parent_id, workspace_id, folder_id, owner, quality, modified_at, location, is_pinned
+  id, name, type, description, parent_id, workspace_id, folder_id, owner, modified_at, is_pinned
 ) values
-  ('ws_analytics', 'Analytics Studio', 'workspace', 'Primary analytics workspace', null, 'ws_analytics', null, 'Avery Chen', 92, now() - interval '2 days', 'Data Platform', true),
-  ('ws_marketing', 'Marketing', 'workspace', 'Marketing analytics and reporting', null, 'ws_marketing', null, 'Jordan Lee', 88, now() - interval '4 days', 'GTM', false),
-  ('ws_platform', 'Data Platform', 'workspace', 'Core data platform assets', null, 'ws_platform', null, 'Priya Patel', 95, now() - interval '1 days', 'Core Systems', true),
+  ('ws_analytics', 'Analytics Studio', 'workspace', 'Primary analytics workspace', null, 'ws_analytics', null, 'Avery Chen', now() - interval '2 days', true),
+  ('ws_marketing', 'Marketing', 'workspace', 'Marketing analytics and reporting', null, 'ws_marketing', null, 'Jordan Lee', now() - interval '4 days', false),
+  ('ws_platform', 'Data Platform', 'workspace', 'Core data platform assets', null, 'ws_platform', null, 'Priya Patel', now() - interval '1 days', true),
 
-  ('fd_exec_reporting', 'Executive Reporting', 'folder', 'Executive reporting assets', 'ws_analytics', 'ws_analytics', 'fd_exec_reporting', 'Avery Chen', 86, now() - interval '6 days', 'Data Platform', false),
-  ('fd_campaign_perf', 'Campaign Performance', 'folder', 'Campaign performance assets', 'ws_marketing', 'ws_marketing', 'fd_campaign_perf', 'Jordan Lee', 84, now() - interval '5 days', 'GTM', false),
-  ('fd_core_data', 'Core Data', 'folder', 'Core platform pipelines', 'ws_platform', 'ws_platform', 'fd_core_data', 'Priya Patel', 90, now() - interval '3 days', 'Core Systems', false),
+  ('fd_exec_reporting', 'Executive Reporting', 'folder', 'Executive reporting assets', 'ws_analytics', 'ws_analytics', 'fd_exec_reporting', 'Avery Chen', now() - interval '6 days', false),
+  ('fd_campaign_perf', 'Campaign Performance', 'folder', 'Campaign performance assets', 'ws_marketing', 'ws_marketing', 'fd_campaign_perf', 'Jordan Lee', now() - interval '5 days', false),
+  ('fd_core_data', 'Core Data', 'folder', 'Core platform pipelines', 'ws_platform', 'ws_platform', 'fd_core_data', 'Priya Patel', now() - interval '3 days', false),
 
-  ('conn_snowflake_analytics', 'Snowflake - Analytics', 'connection', 'Analytics warehouse connection', 'ws_analytics', 'ws_analytics', null, 'Avery Chen', 93, now() - interval '1 days', 'Data Platform', true),
-  ('conn_hubspot', 'HubSpot - Marketing', 'connection', 'Marketing automation data', 'ws_marketing', 'ws_marketing', null, 'Jordan Lee', 85, now() - interval '4 days', 'GTM', false),
-  ('conn_google_ads', 'Google Ads', 'connection', 'Paid acquisition data', 'ws_marketing', 'ws_marketing', null, 'Jordan Lee', 84, now() - interval '3 days', 'GTM', false),
-  ('conn_mysql_billing', 'MySQL - Billing', 'connection', 'Billing system database', 'ws_platform', 'ws_platform', null, 'Priya Patel', 89, now() - interval '2 days', 'Core Systems', false),
-  ('conn_snowflake_prod', 'Snowflake - Prod', 'connection', 'Primary warehouse connection', 'ws_platform', 'ws_platform', null, 'Priya Patel', 93, now() - interval '1 days', 'Core Systems', true),
+  ('conn_snowflake_analytics', 'Snowflake - Analytics', 'connection', 'Analytics warehouse connection', 'ws_analytics', 'ws_analytics', null, 'Avery Chen', now() - interval '1 days', true),
+  ('conn_hubspot', 'HubSpot - Marketing', 'connection', 'Marketing automation data', 'ws_marketing', 'ws_marketing', null, 'Jordan Lee', now() - interval '4 days', false),
+  ('conn_google_ads', 'Google Ads', 'connection', 'Paid acquisition data', 'ws_marketing', 'ws_marketing', null, 'Jordan Lee', now() - interval '3 days', false),
+  ('conn_mysql_billing', 'MySQL - Billing', 'connection', 'Billing system database', 'ws_platform', 'ws_platform', null, 'Priya Patel', now() - interval '2 days', false),
+  ('conn_snowflake_prod', 'Snowflake - Prod', 'connection', 'Primary warehouse connection', 'ws_platform', 'ws_platform', null, 'Priya Patel', now() - interval '1 days', true),
 
-  ('pipe_kpi_rollup', 'Daily KPI Rollup', 'pipeline', 'Rolls up KPI metrics for reporting', 'fd_exec_reporting', 'ws_analytics', 'fd_exec_reporting', 'Avery Chen', 88, now() - interval '3 days', 'Data Platform', false),
-  ('pipe_ad_spend', 'Ad Spend Attribution', 'pipeline', 'Attribution for paid spend', 'fd_campaign_perf', 'ws_marketing', 'fd_campaign_perf', 'Jordan Lee', 87, now() - interval '2 days', 'GTM', false),
-  ('pipe_customer_360', 'Customer 360 Pipeline', 'pipeline', 'Builds customer 360 dataset', 'fd_core_data', 'ws_platform', 'fd_core_data', 'Priya Patel', 91, now() - interval '2 days', 'Core Systems', false),
-  ('pipe_revenue_facts', 'Revenue Facts Pipeline', 'pipeline', 'Curates revenue facts', 'fd_core_data', 'ws_platform', 'fd_core_data', 'Priya Patel', 90, now() - interval '4 days', 'Core Systems', false),
+  ('pipe_kpi_rollup', 'Daily KPI Rollup', 'pipeline', 'Rolls up KPI metrics for reporting', 'fd_exec_reporting', 'ws_analytics', 'fd_exec_reporting', 'Avery Chen', now() - interval '3 days', false),
+  ('pipe_ad_spend', 'Ad Spend Attribution', 'pipeline', 'Attribution for paid spend', 'fd_campaign_perf', 'ws_marketing', 'fd_campaign_perf', 'Jordan Lee', now() - interval '2 days', false),
+  ('pipe_customer_360', 'Customer 360 Pipeline', 'pipeline', 'Builds customer 360 dataset', 'fd_core_data', 'ws_platform', 'fd_core_data', 'Priya Patel', now() - interval '2 days', false),
+  ('pipe_revenue_facts', 'Revenue Facts Pipeline', 'pipeline', 'Curates revenue facts', 'fd_core_data', 'ws_platform', 'fd_core_data', 'Priya Patel', now() - interval '4 days', false),
 
-  ('app_exec_dashboard', 'Executive Metrics Dashboard', 'analytics-app', 'Executive KPI overview', 'fd_exec_reporting', 'ws_analytics', 'fd_exec_reporting', 'Avery Chen', 91, now() - interval '1 days', 'Data Platform', true),
-  ('app_operations_overview', 'Operations Overview', 'analytics-app', 'Operations performance overview', 'ws_analytics', 'ws_analytics', null, 'Avery Chen', 86, now() - interval '5 days', 'Data Platform', false),
-  ('app_campaign_perf', 'Campaign Performance Dashboard', 'analytics-app', 'Campaign performance overview', 'fd_campaign_perf', 'ws_marketing', 'fd_campaign_perf', 'Jordan Lee', 87, now() - interval '3 days', 'GTM', false)
+  ('app_exec_dashboard', 'Executive Metrics Dashboard', 'analytics-app', 'Executive KPI overview', 'fd_exec_reporting', 'ws_analytics', 'fd_exec_reporting', 'Avery Chen', now() - interval '1 days', true),
+  ('app_operations_overview', 'Operations Overview', 'analytics-app', 'Operations performance overview', 'ws_analytics', 'ws_analytics', null, 'Avery Chen', now() - interval '5 days', false),
+  ('app_campaign_perf', 'Campaign Performance Dashboard', 'analytics-app', 'Campaign performance overview', 'fd_campaign_perf', 'ws_marketing', 'fd_campaign_perf', 'Jordan Lee', now() - interval '3 days', false)
 on conflict (id) do nothing;
 
 insert into connection_metadata (

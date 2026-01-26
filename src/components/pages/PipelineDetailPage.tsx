@@ -5,9 +5,9 @@ import {
   Table2,
   Folder,
   Play,
-  Monitor,
   Pin,
   ArrowRight,
+  CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,12 +19,6 @@ import { cn } from '@/lib/utils'
 interface PipelineDetailPageProps {
   pipelineId?: string
   pipeline?: Asset
-}
-
-const getTableLabel = (tableId: string) => {
-  const match = tableId.split('-table-')[1]
-  if (!match) return tableId
-  return `Table ${match}`
 }
 
 const formatConnectionType = (type?: string) => {
@@ -64,10 +58,11 @@ export default function PipelineDetailPage({
     : undefined
   const workspaceId = meta?.workspace || pipeline.parentId
   const workspace = workspaceId ? getAsset(workspaceId) : undefined
-  const selectedTables = (meta?.selectedTableIds || []).map(getTableLabel)
+  const selectedTables = meta?.selectedTableNames?.length
+    ? meta.selectedTableNames
+    : (meta?.selectedTableIds || [])
   const isPinned = pinnedItems.some((item) => item.id === pipeline.id)
 
-  const [activeView, setActiveView] = useState<'canvas' | 'monitoring'>('canvas')
   const [runHistory, setRunHistory] = useState<
     {
       id: string
@@ -76,36 +71,19 @@ export default function PipelineDetailPage({
       finishedAt?: Date
       triggeredBy: string
     }[]
-  >([
-    {
-      id: 'run-3',
-      status: 'success',
-      startedAt: new Date(Date.now() - 1000 * 60 * 180),
-      finishedAt: new Date(Date.now() - 1000 * 60 * 175),
-      triggeredBy: 'Automation',
-    },
-    {
-      id: 'run-2',
-      status: 'failed',
-      startedAt: new Date(Date.now() - 1000 * 60 * 360),
-      finishedAt: new Date(Date.now() - 1000 * 60 * 350),
-      triggeredBy: 'Scheduler',
-    },
-    {
-      id: 'run-1',
-      status: 'success',
-      startedAt: new Date(Date.now() - 1000 * 60 * 720),
-      finishedAt: new Date(Date.now() - 1000 * 60 * 705),
-      triggeredBy: 'You',
-    },
-  ])
+  >([])
   const [currentRunId, setCurrentRunId] = useState<string | null>(null)
   const runTimerRef = useRef<number | null>(null)
+  const toastTimerRef = useRef<number | null>(null)
+  const [showRunToast, setShowRunToast] = useState(false)
 
   useEffect(() => {
     return () => {
       if (runTimerRef.current) {
         window.clearTimeout(runTimerRef.current)
+      }
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current)
       }
     }
   }, [])
@@ -116,13 +94,13 @@ export default function PipelineDetailPage({
     const startedAt = new Date()
     setCurrentRunId(id)
     setRunHistory((prev) => [
+      ...prev,
       {
         id,
         status: 'running',
         startedAt,
         triggeredBy: 'You',
       },
-      ...prev,
     ])
 
     if (runTimerRef.current) {
@@ -138,6 +116,13 @@ export default function PipelineDetailPage({
         )
       )
       setCurrentRunId((prev) => (prev === id ? null : prev))
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current)
+      }
+      setShowRunToast(true)
+      toastTimerRef.current = window.setTimeout(() => {
+        setShowRunToast(false)
+      }, 2400)
     }, 1600)
   }
 
@@ -215,7 +200,15 @@ export default function PipelineDetailPage({
   }, [selectedTables.length, sourceConnection?.name, destinationConnection?.name])
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="relative flex h-full flex-col bg-white">
+      {showRunToast && (
+        <div className="absolute left-1/2 top-6 z-50 -translate-x-1/2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-medium text-emerald-700">
+            <CheckCircle2 className="h-4 w-4" />
+            Pipeline run completed
+          </div>
+        </div>
+      )}
       <div className="border-b border-border px-6 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -229,26 +222,7 @@ export default function PipelineDetailPage({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRunPipeline}
-              disabled={!!currentRunId}
-            >
-              <Play className="mr-2 h-4 w-4" />
-              {currentRunId ? 'Running...' : 'Run pipeline'}
-            </Button>
-            <Button
-              variant={activeView === 'monitoring' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() =>
-                setActiveView((prev) => (prev === 'monitoring' ? 'canvas' : 'monitoring'))
-              }
-            >
-              <Monitor className="mr-2 h-4 w-4" />
-              {activeView === 'monitoring' ? 'Canvas view' : 'Monitoring view'}
-            </Button>
+          <div className="flex flex-1 items-center justify-end gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -259,15 +233,22 @@ export default function PipelineDetailPage({
               <Pin className={cn('mr-2 h-4 w-4', isPinned && 'fill-current')} />
               {isPinned ? 'Pinned' : 'Pin to sidebar'}
             </Button>
+            <Button
+              size="sm"
+              onClick={handleRunPipeline}
+              disabled={!!currentRunId}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              {currentRunId ? 'Running...' : 'Run pipeline'}
+            </Button>
           </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto p-6">
         <div className="mx-auto flex max-w-6xl flex-col gap-6">
-          {activeView === 'canvas' ? (
-            <>
-              <div className="rounded-lg border border-border bg-white p-6">
+          <>
+            <div className="rounded-lg border border-border bg-white p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-semibold">Pipeline flow</h2>
@@ -375,94 +356,26 @@ export default function PipelineDetailPage({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <div className="rounded-lg border border-border p-6 lg:col-span-2">
-                  <h2 className="mb-4 text-lg font-semibold">Connections</h2>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Workspace</span>
-                      <span>{workspace?.name || '—'}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 text-muted-foreground">
-                        <Database className="h-4 w-4" />
-                        Source
-                      </span>
-                      <span>{sourceConnection?.name || '—'}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 text-muted-foreground">
-                        <Database className="h-4 w-4" />
-                        Destination
-                      </span>
-                      <span>{destinationConnection?.name || '—'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border p-6">
-                  <h2 className="mb-4 text-lg font-semibold">Metadata</h2>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Owner</span>
-                      <span>{pipeline.owner || '—'}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Last updated</span>
-                      <span>{pipeline.modified?.toLocaleDateString() || '—'}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Quality</span>
-                      <span>{pipeline.quality ?? '—'}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Location</span>
-                      <span>{pipeline.location || '—'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border p-6">
-                <div className="flex items-center gap-2">
-                  <Table2 className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="text-lg font-semibold">Selected tables</h2>
-                </div>
-                {selectedTables.length > 0 ? (
-                  <ul className="mt-4 grid gap-2 text-sm md:grid-cols-2">
-                    {selectedTables.map((table) => (
-                      <li key={table} className="flex items-center gap-2">
-                        <Folder className="h-4 w-4 text-muted-foreground" />
-                        {table}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-4 text-sm text-muted-foreground">No tables selected.</p>
-                )}
-              </div>
-            </>
-          ) : (
             <div className="rounded-lg border border-border bg-white p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold">Monitoring</h2>
                   <p className="text-sm text-muted-foreground">
-                    Track current and historical pipeline runs in one view.
+                    Track current pipeline runs in one view.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>Current status:</span>
                   <Badge
                     variant={
-                      runHistory[0]?.status === 'success'
+                      runHistory[runHistory.length - 1]?.status === 'success'
                         ? 'secondary'
-                        : runHistory[0]?.status === 'failed'
+                        : runHistory[runHistory.length - 1]?.status === 'failed'
                         ? 'destructive'
                         : 'outline'
                     }
                   >
-                    {runHistory[0]?.status ?? 'idle'}
+                    {runHistory[runHistory.length - 1]?.status ?? 'idle'}
                   </Badge>
                 </div>
               </div>
@@ -480,45 +393,110 @@ export default function PipelineDetailPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {runHistory.map((run, index) => (
-                      <tr
-                        key={run.id}
-                        className={cn(
-                          'border-t border-border',
-                          index === 0 && run.status === 'running' && 'bg-blue-50/60'
-                        )}
-                      >
-                        <td className="px-4 py-3 font-medium text-slate-900">#{runHistory.length - index}</td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            variant={
-                              run.status === 'success'
-                                ? 'secondary'
-                                : run.status === 'failed'
-                                ? 'destructive'
-                                : 'outline'
-                            }
-                          >
-                            {run.status}
-                          </Badge>
+                    {runHistory.length === 0 ? (
+                      <tr className="border-t border-border">
+                        <td
+                          className="px-4 py-6 text-center text-sm text-muted-foreground"
+                          colSpan={6}
+                        >
+                          This pipeline has no runs.
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {formatDateTime(run.startedAt)}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {formatDateTime(run.finishedAt)}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {formatDuration(run.startedAt, run.finishedAt)}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{run.triggeredBy}</td>
                       </tr>
-                    ))}
+                    ) : (
+                      runHistory.map((run, index) => (
+                        <tr
+                          key={run.id}
+                          className={cn(
+                            'border-t border-border',
+                            run.id === currentRunId && run.status === 'running' && 'bg-blue-50/60'
+                          )}
+                        >
+                          <td className="px-4 py-3 font-medium text-slate-900">#{index + 1}</td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              variant={
+                                run.status === 'success'
+                                  ? 'secondary'
+                                  : run.status === 'failed'
+                                  ? 'destructive'
+                                  : 'outline'
+                              }
+                            >
+                              {run.status}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {formatDateTime(run.startedAt)}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {formatDateTime(run.finishedAt)}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {formatDuration(run.startedAt, run.finishedAt)}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">{run.triggeredBy}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
-          )}
+
+            <div className="rounded-lg border border-border p-6">
+              <h2 className="mb-4 text-lg font-semibold">Pipeline Overview</h2>
+              <div className="grid gap-6 text-sm lg:grid-cols-2">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Workspace</span>
+                    <span>{workspace?.name || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Database className="h-4 w-4" />
+                      Source
+                    </span>
+                    <span>{sourceConnection?.name || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Database className="h-4 w-4" />
+                      Destination
+                    </span>
+                    <span>{destinationConnection?.name || '—'}</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Owner</span>
+                    <span>{pipeline.owner || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Created at</span>
+                    <span>{pipeline.createdAt?.toLocaleDateString() || '—'}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6">
+                <div className="flex items-center gap-2">
+                  <Table2 className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-base font-semibold">Selected tables</h3>
+                </div>
+                {selectedTables.length > 0 ? (
+                  <ul className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+                    {selectedTables.map((table) => (
+                      <li key={table} className="flex items-center gap-2">
+                        <Folder className="h-4 w-4 text-muted-foreground" />
+                        {table}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">No tables selected.</p>
+                )}
+              </div>
+            </div>
+          </>
         </div>
       </div>
     </div>
