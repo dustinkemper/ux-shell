@@ -8,7 +8,7 @@ import {
   Library,
   ChevronDown,
   ChevronUp,
-  Sparkles,
+  Inbox,
   Waves,
   Hexagon,
   Scale,
@@ -30,7 +30,7 @@ import { useCatalogStore } from '@/stores/catalogStore'
 import type { Asset, AssetType, FlyoutType } from '@/types'
 import { cn } from '@/lib/utils'
 import { getAssetIcon } from '@/lib/iconUtils'
-import { useState } from 'react'
+import { useMemo } from 'react'
 
 // Tools panel data organized by sections
 const getToolsData = () => {
@@ -84,7 +84,7 @@ const getHeaderIcon = (flyoutType: FlyoutType) => {
     case 'catalog':
       return <Library className="h-4 w-4 text-[#18191a]" />
     case 'more':
-      return <Sparkles className="h-4 w-4 text-[#18191a]" />
+      return <Inbox className="h-4 w-4 text-[#18191a]" />
     default:
       return null
   }
@@ -105,9 +105,10 @@ interface TreeItemProps {
   item: Asset
   level: number
   onItemClick: (item: Asset) => void
-  selectedId?: string
   ancestorLines?: boolean[]
   isLast?: boolean
+  expandedIds: Set<string>
+  onToggleExpand: (id: string) => void
 }
 
 function StemSvg({
@@ -178,14 +179,15 @@ function TreeItem({
   item,
   level,
   onItemClick,
-  selectedId,
   ancestorLines = [],
   isLast = false,
+  expandedIds,
+  onToggleExpand,
 }: TreeItemProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
   const { pinnedItems, pinItem, unpinItem } = useSidebarStore()
   const isPinned = pinnedItems.some((p) => p.id === item.id)
   const hasChildren = (item.children?.length ?? 0) > 0
+  const isExpanded = expandedIds.has(item.id)
   const baseIndent = 8
   const indentSize = 40
   const caretWidth = 16
@@ -226,7 +228,7 @@ function TreeItem({
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                setIsExpanded(!isExpanded)
+                onToggleExpand(item.id)
               }}
               className="flex h-4 w-4 items-center justify-center rounded-[4px] hover:bg-gray-200/50 transition-colors"
             >
@@ -313,9 +315,10 @@ function TreeItem({
               item={child}
               level={level + 1}
               onItemClick={onItemClick}
-              selectedId={selectedId}
               ancestorLines={[...ancestorLines, !isLast]}
               isLast={index === item.children!.length - 1}
+              expandedIds={expandedIds}
+              onToggleExpand={onToggleExpand}
             />
           ))}
         </div>
@@ -382,25 +385,24 @@ function SectionHeader({ title, isExpanded, onToggle }: SectionHeaderProps) {
 }
 
 export default function FlyoutPanel() {
-  const { flyoutType, closeFlyout } = useSidebarStore()
-  const { openTab, openPageTab } = useTabStore()
   const {
-    getHierarchicalAssets,
-    assets,
-    setTypeFilter,
-    setActiveFilter,
-    setSearchQuery: setCatalogSearchQuery,
-  } = useCatalogStore()
-  const [searchQuery, setFlyoutSearchQuery] = useState('')
-  const [selectedFilter, setSelectedFilter] = useState<string>('all')
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    'Data integration': true,
-    'Data Prep': true,
-    'Data Quality': true,
-    Analytics: true,
-    'AI Assistant': true,
-  })
-  const [selectedItemId, setSelectedItemId] = useState<string>()
+    flyoutType,
+    closeFlyout,
+    catalogFlyoutState,
+    toolsFlyoutState,
+    setCatalogFlyoutState,
+    setToolsFlyoutState,
+  } = useSidebarStore()
+  const { openTab, openPageTab } = useTabStore()
+  const { assets } = useCatalogStore()
+  const searchQuery =
+    flyoutType === 'catalog' ? catalogFlyoutState.searchQuery : toolsFlyoutState.searchQuery
+  const selectedFilter = catalogFlyoutState.selectedFilter
+  const expandedSections = toolsFlyoutState.expandedSections
+  const expandedCatalogIds = useMemo(
+    () => new Set(catalogFlyoutState.expandedIds),
+    [catalogFlyoutState.expandedIds]
+  )
 
   if (!flyoutType) return null
 
@@ -478,11 +480,7 @@ export default function FlyoutPanel() {
   }
 
   const handleItemClick = (item: Asset) => {
-    setSelectedItemId(item.id)
     if (flyoutType === 'more') {
-      setActiveFilter('all')
-      setCatalogSearchQuery('')
-      setTypeFilter([item.type])
       openPageTab('catalog-filtered', `Catalog: ${item.name}`, 'Library', {
         assetType: item.type,
       })
@@ -495,10 +493,22 @@ export default function FlyoutPanel() {
   }
 
   const toggleSection = (sectionName: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [sectionName]: !prev[sectionName],
-    }))
+    setToolsFlyoutState({
+      expandedSections: {
+        ...toolsFlyoutState.expandedSections,
+        [sectionName]: !(toolsFlyoutState.expandedSections[sectionName] ?? true),
+      },
+    })
+  }
+
+  const toggleCatalogExpanded = (id: string) => {
+    const next = new Set(catalogFlyoutState.expandedIds)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    setCatalogFlyoutState({ expandedIds: Array.from(next) })
   }
 
   const getSearchPlaceholder = () => {
@@ -561,55 +571,15 @@ export default function FlyoutPanel() {
               type="text"
               placeholder={getSearchPlaceholder()}
               value={searchQuery}
-              onChange={(e) => setFlyoutSearchQuery(e.target.value)}
+              onChange={(e) =>
+                flyoutType === 'catalog'
+                  ? setCatalogFlyoutState({ searchQuery: e.target.value })
+                  : setToolsFlyoutState({ searchQuery: e.target.value })
+              }
               className="flex-1 bg-transparent text-sm leading-5 text-[#18191a] placeholder:text-[#18191a] outline-none"
             />
           </div>
         </div>
-
-        {/* Filter Buttons - Tools */}
-        {flyoutType === 'more' && (
-          <div className="flex w-full items-center justify-between">
-            <div className="flex flex-1 gap-2 rounded-[8px] bg-[#f7fafb] p-[2px]">
-              <Button
-                variant="ghost"
-                className={cn(
-                  'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
-                  selectedFilter === 'all'
-                    ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
-                    : 'text-[#5e656a] hover:bg-white/50'
-                )}
-                onClick={() => setSelectedFilter('all')}
-              >
-                All
-              </Button>
-              <Button
-                variant="ghost"
-                className={cn(
-                  'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
-                  selectedFilter === 'data-integration'
-                    ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
-                    : 'text-[#5e656a] hover:bg-white/50'
-                )}
-                onClick={() => setSelectedFilter('data-integration')}
-              >
-                Data integration
-              </Button>
-              <Button
-                variant="ghost"
-                className={cn(
-                  'h-8 flex-1 rounded-[6px] px-3 text-sm transition-colors',
-                  selectedFilter === 'analytics'
-                    ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
-                    : 'text-[#5e656a] hover:bg-white/50'
-                )}
-                onClick={() => setSelectedFilter('analytics')}
-              >
-                Analytics
-              </Button>
-            </div>
-          </div>
-        )}
 
         {/* Filter Buttons - Catalog */}
         {flyoutType === 'catalog' && (
@@ -623,7 +593,7 @@ export default function FlyoutPanel() {
                     ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
                     : 'text-[#5e656a] hover:bg-white/50'
                 )}
-                onClick={() => setSelectedFilter('all')}
+                onClick={() => setCatalogFlyoutState({ selectedFilter: 'all' })}
               >
                 All
               </Button>
@@ -635,7 +605,7 @@ export default function FlyoutPanel() {
                     ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
                     : 'text-[#5e656a] hover:bg-white/50'
                 )}
-                onClick={() => setSelectedFilter('recent')}
+                onClick={() => setCatalogFlyoutState({ selectedFilter: 'recent' })}
               >
                 Recent
               </Button>
@@ -647,7 +617,7 @@ export default function FlyoutPanel() {
                     ? 'bg-white text-[#18191a] hover:bg-[#f0f0f0]'
                     : 'text-[#5e656a] hover:bg-white/50'
                 )}
-                onClick={() => setSelectedFilter('favorites')}
+                onClick={() => setCatalogFlyoutState({ selectedFilter: 'favorites' })}
               >
                 Favorites
               </Button>
@@ -694,7 +664,8 @@ export default function FlyoutPanel() {
                   item={item}
                   level={0}
                   onItemClick={handleItemClick}
-                  selectedId={selectedItemId}
+                  expandedIds={expandedCatalogIds}
+                  onToggleExpand={toggleCatalogExpanded}
                   ancestorLines={[]}
                   isLast={index === list.length - 1}
                 />
@@ -708,7 +679,8 @@ export default function FlyoutPanel() {
                   item={item}
                   level={0}
                   onItemClick={handleItemClick}
-                  selectedId={selectedItemId}
+                  expandedIds={expandedCatalogIds}
+                  onToggleExpand={toggleCatalogExpanded}
                   ancestorLines={[]}
                   isLast={index === list.length - 1}
                 />

@@ -5,10 +5,21 @@ interface SidebarStore {
   state: SidebarState
   flyoutType: FlyoutType
   pinnedItems: Asset[]
+  catalogFlyoutState: {
+    searchQuery: string
+    selectedFilter: 'all' | 'recent' | 'favorites'
+    expandedIds: string[]
+  }
+  toolsFlyoutState: {
+    searchQuery: string
+    expandedSections: Record<string, boolean>
+  }
   toggleCollapse: () => void
   toggleMinimize: () => void
   openFlyout: (type: FlyoutType) => void
   closeFlyout: () => void
+  setCatalogFlyoutState: (next: Partial<SidebarStore['catalogFlyoutState']>) => void
+  setToolsFlyoutState: (next: Partial<SidebarStore['toolsFlyoutState']>) => void
   pinItem: (item: Asset) => void
   unpinItem: (itemId: string) => void
 }
@@ -35,6 +46,21 @@ export const useSidebarStore = create<SidebarStore>((set) => ({
   state: 'expanded',
   flyoutType: null,
   pinnedItems: loadPinnedItems(),
+  catalogFlyoutState: {
+    searchQuery: '',
+    selectedFilter: 'all',
+    expandedIds: [],
+  },
+  toolsFlyoutState: {
+    searchQuery: '',
+    expandedSections: {
+      'Data integration': true,
+      'Data Prep': true,
+      'Data Quality': true,
+      Analytics: true,
+      'AI Assistant': true,
+    },
+  },
   toggleCollapse: () =>
     set((state) => ({
       state: state.state === 'expanded' ? 'collapsed' : 'expanded',
@@ -45,6 +71,14 @@ export const useSidebarStore = create<SidebarStore>((set) => ({
     })),
   openFlyout: (type) => set({ flyoutType: type }),
   closeFlyout: () => set({ flyoutType: null }),
+  setCatalogFlyoutState: (next) =>
+    set((state) => ({
+      catalogFlyoutState: { ...state.catalogFlyoutState, ...next },
+    })),
+  setToolsFlyoutState: (next) =>
+    set((state) => ({
+      toolsFlyoutState: { ...state.toolsFlyoutState, ...next },
+    })),
   pinItem: (item) =>
     set((state) => {
       if (state.pinnedItems.some((p) => p.id === item.id)) {

@@ -46,7 +46,16 @@ export const useTabStore = create<TabStore>((set, get) => ({
   },
   openPageTab: (pageType, label, icon, pageData) => {
     const tabs = get().tabs
-    if (pageType !== 'catalog-filtered') {
+    if (pageType === 'catalog-filtered') {
+      const requestedType = pageData?.assetType
+      const existingTab = tabs.find(
+        (t) => t.pageType === 'catalog-filtered' && t.pageData?.assetType === requestedType
+      )
+      if (existingTab) {
+        set({ activeTabId: existingTab.id })
+        return
+      }
+    } else {
       const existingTab = tabs.find((t) => t.pageType === pageType)
       if (existingTab) {
         set({ activeTabId: existingTab.id })

@@ -79,6 +79,8 @@ export default function CatalogPage({ filteredType, title }: CatalogPageProps) {
 
   const hierarchicalAssets = getHierarchicalAssets()
   const isFilteredView = Boolean(filteredType)
+  const effectiveActiveFilter = isFilteredView ? 'all' : activeFilter
+  const effectiveViewMode = isFilteredView ? 'list' : viewMode
   const [filteredSearchQuery, setFilteredSearchQuery] = useState('')
   const effectiveSearchQuery = isFilteredView ? filteredSearchQuery : searchQuery
 
@@ -397,18 +399,18 @@ export default function CatalogPage({ filteredType, title }: CatalogPageProps) {
         asset.name.toLowerCase().includes(loweredQuery)
       )
     }
-    if (activeFilter === 'recent') {
+    if (effectiveActiveFilter === 'recent') {
       flattened = [...flattened].sort((a, b) => {
         const dateA = a.modified?.getTime() ?? 0
         const dateB = b.modified?.getTime() ?? 0
         return dateB - dateA
       })
     }
-    if (activeFilter === 'favorites') {
+    if (effectiveActiveFilter === 'favorites') {
       flattened = flattened.filter((asset) => asset.tags?.includes('favorite'))
     }
     return flattened.map((asset) => stripChildren(asset))
-  }, [activeFilter, assets, effectiveSearchQuery, filteredType])
+  }, [assets, effectiveActiveFilter, effectiveSearchQuery, filteredType])
 
   const listAssets = useMemo(() => {
     if (isFilteredView) {
@@ -522,6 +524,7 @@ export default function CatalogPage({ filteredType, title }: CatalogPageProps) {
   ])
 
   useEffect(() => {
+    if (isFilteredView) return
     const hasFilters =
       catalogView === 'flat' ||
       isFilteredView ||
@@ -769,7 +772,7 @@ export default function CatalogPage({ filteredType, title }: CatalogPageProps) {
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        {viewMode === 'list' ? (
+        {effectiveViewMode === 'list' ? (
           <div className="w-full">
             {hasListResults ? (
               <table className="w-full">
