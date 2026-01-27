@@ -11,6 +11,9 @@ interface TabStore {
   setTabAsset: (tabId: string, asset: Asset) => void
   setTabPage: (tabId: string, pageType: PageType, label: string, icon?: string, pageData?: Tab['pageData']) => void
   closeTab: (tabId: string) => void
+  closeTabsLeft: (tabId: string) => void
+  closeTabsRight: (tabId: string) => void
+  closeOtherTabs: (tabId: string) => void
   setActiveTab: (tabId: string) => void
   reorderTabs: (fromIndex: number, toIndex: number) => void
   handleOverflow: () => void
@@ -137,6 +140,33 @@ export const useTabStore = create<TabStore>((set, get) => ({
             : null
           : activeTabId,
     })
+  },
+  closeTabsLeft: (tabId) => {
+    const tabs = get().tabs
+    const tabIndex = tabs.findIndex((tab) => tab.id === tabId)
+    if (tabIndex === -1) return
+    const nextTabs = tabs.filter(
+      (tab, index) => tab.isLocked || index >= tabIndex
+    )
+    set({ tabs: nextTabs, activeTabId: tabId })
+  },
+  closeTabsRight: (tabId) => {
+    const tabs = get().tabs
+    const tabIndex = tabs.findIndex((tab) => tab.id === tabId)
+    if (tabIndex === -1) return
+    const nextTabs = tabs.filter(
+      (tab, index) => tab.isLocked || index <= tabIndex
+    )
+    set({ tabs: nextTabs, activeTabId: tabId })
+  },
+  closeOtherTabs: (tabId) => {
+    const tabs = get().tabs
+    const tabIndex = tabs.findIndex((tab) => tab.id === tabId)
+    if (tabIndex === -1) return
+    const nextTabs = tabs.filter(
+      (tab, index) => tab.isLocked || index === tabIndex
+    )
+    set({ tabs: nextTabs, activeTabId: tabId })
   },
   setActiveTab: (tabId) => set({ activeTabId: tabId }),
   reorderTabs: (fromIndex, toIndex) => {

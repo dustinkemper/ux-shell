@@ -19,10 +19,16 @@ interface TabItemProps {
 }
 
 export default function TabItem({ tab, isActive }: TabItemProps) {
-  const { closeTab, setActiveTab } = useTabStore()
+  const {
+    tabs,
+    closeTab,
+    closeOtherTabs,
+    closeTabsLeft,
+    closeTabsRight,
+    setActiveTab,
+  } = useTabStore()
   const { getAsset } = useCatalogStore()
   const [isHovered, setIsHovered] = useState(false)
-  const [isFocused, setIsFocused] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
   // Get the appropriate icon component
@@ -83,6 +89,16 @@ export default function TabItem({ tab, isActive }: TabItemProps) {
   const isEditState = state === 'edit' || isEditing
   const isLoadingState = state === 'loading'
   const isErrorState = state === 'error'
+  const tabIndex = tabs.findIndex((item) => item.id === tab.id)
+  const hasClosableLeft = tabs.some(
+    (item, index) => index < tabIndex && !item.isLocked
+  )
+  const hasClosableRight = tabs.some(
+    (item, index) => index > tabIndex && !item.isLocked
+  )
+  const hasClosableOthers = tabs.some(
+    (item, index) => index !== tabIndex && !item.isLocked
+  )
 
   const handleClick = () => {
     setActiveTab(tab.id)
@@ -100,7 +116,6 @@ export default function TabItem({ tab, isActive }: TabItemProps) {
   const borderColor = '#c7cfd1'
   const textPrimary = '#18191a'
   const textSecondary = '#5e656a'
-  const focusBorder = '#5896f9'
 
   // Determine background color
   const getBackgroundColor = () => {
@@ -137,22 +152,15 @@ export default function TabItem({ tab, isActive }: TabItemProps) {
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onFocus={() => setIsFocused(true)}
-      onBlur={() => setIsFocused(false)}
     >
       <div
         className={cn(
           'flex min-w-0 flex-1 items-center gap-[4px] rounded-[4px]',
           // Hover state background
           (isHovered || state === 'hover') && !isActive && 'bg-[#dfe5e6]',
-          // Focus state border
-          (isFocused || state === 'focus') && 'border-2',
           // Edit state text background
           isEditState && 'bg-[#bcd5fd]'
         )}
-        style={{
-          borderColor: (isFocused || state === 'focus') ? focusBorder : 'transparent',
-        }}
       >
         {/* Icon */}
         <div className="flex shrink-0 items-center justify-center overflow-clip rounded-[4px] p-[8px]">
@@ -250,10 +258,24 @@ export default function TabItem({ tab, isActive }: TabItemProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>Duplicate</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setIsEditing(true)}>Rename</DropdownMenuItem>
-                  <DropdownMenuItem>Close Others</DropdownMenuItem>
-                  <DropdownMenuItem>Close to Right</DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => closeOtherTabs(tab.id)}
+                    disabled={!hasClosableOthers}
+                  >
+                    Close All Others
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => closeTabsLeft(tab.id)}
+                    disabled={!hasClosableLeft}
+                  >
+                    Close to Left
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => closeTabsRight(tab.id)}
+                    disabled={!hasClosableRight}
+                  >
+                    Close to Right
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
