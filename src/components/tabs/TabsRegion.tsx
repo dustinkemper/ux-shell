@@ -125,6 +125,24 @@ export default function TabsRegion() {
     }
   }, [tabs])
 
+  useEffect(() => {
+    if (!activeTabId || !hasOverflow) return
+    const container = scrollContainerRef.current
+    if (!container) return
+    const tabNode = tabRefs.current.get(activeTabId)
+    if (!tabNode) return
+
+    const { scrollLeft, clientWidth } = container
+    const tabLeft = tabNode.offsetLeft
+    const tabRight = tabLeft + tabNode.offsetWidth
+    const visibleLeft = scrollLeft
+    const visibleRight = scrollLeft + clientWidth
+
+    if (tabLeft < visibleLeft || tabRight > visibleRight) {
+      tabNode.scrollIntoView({ behavior: 'smooth', inline: 'center' })
+    }
+  }, [activeTabId, hasOverflow, tabs])
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
 
