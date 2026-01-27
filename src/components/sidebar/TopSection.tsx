@@ -5,7 +5,7 @@ import { useTabStore } from '@/stores/tabStore'
 import { cn } from '@/lib/utils'
 
 export default function TopSection() {
-  const { state, flyoutType, openFlyout } = useSidebarStore()
+  const { state, flyoutType, openFlyout, closeFlyout } = useSidebarStore()
 
   const handleCreateNew = () => {
     const { openPageTab } = useTabStore.getState()
@@ -16,6 +16,14 @@ export default function TopSection() {
 
   const isCatalogActive = flyoutType === 'catalog'
   const isMoreActive = flyoutType === 'more'
+
+  const toggleFlyout = (type: 'catalog' | 'more') => {
+    if (flyoutType === type) {
+      closeFlyout()
+      return
+    }
+    openFlyout(type)
+  }
 
   return (
     <div className={cn(
@@ -55,7 +63,7 @@ export default function TopSection() {
           paddingTop: '0px',
           paddingBottom: '0px'
         }}
-        onClick={() => openFlyout('catalog')}
+        onClick={() => toggleFlyout('catalog')}
       >
         <Library className={cn(
           "h-4 w-4 shrink-0",
@@ -89,7 +97,7 @@ export default function TopSection() {
           paddingTop: '0px',
           paddingBottom: '0px'
         }}
-        onClick={() => openFlyout('more')}
+        onClick={() => toggleFlyout('more')}
       >
         <MoreHorizontal className={cn(
           "h-4 w-4 shrink-0",

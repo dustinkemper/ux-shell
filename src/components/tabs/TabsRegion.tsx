@@ -132,11 +132,11 @@ export default function TabsRegion() {
       {/* Left scroll button and gradient */}
       {canScrollLeft && (
         <>
-          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#dfe5e6] to-transparent pointer-events-none z-10" />
+          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#737f85]/40 to-transparent pointer-events-none z-10" />
           <Button
             variant="ghost"
             size="icon"
-            className="absolute left-0 h-11 w-8 rounded-none z-20 hover:bg-gray-200/50"
+            className="absolute left-0 h-11 w-8 rounded-none z-20 bg-[#737f85] text-white shadow-sm hover:bg-[#5f6a6f] hover:text-white"
             onClick={scrollLeft}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -192,11 +192,11 @@ export default function TabsRegion() {
       {/* Right scroll button and gradient - positioned before new tab button when overflow */}
       {canScrollRight && (
         <>
-          <div className="absolute right-[44px] top-0 bottom-0 w-8 bg-gradient-to-l from-[#dfe5e6] to-transparent pointer-events-none z-10" />
+          <div className="absolute right-[44px] top-0 bottom-0 w-8 bg-gradient-to-l from-[#737f85]/40 to-transparent pointer-events-none z-10" />
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-[44px] h-11 w-8 rounded-none z-20 hover:bg-gray-200/50"
+            className="absolute right-[44px] h-11 w-8 rounded-none z-20 bg-[#737f85] text-white shadow-sm hover:bg-[#5f6a6f] hover:text-white"
             onClick={scrollRight}
           >
             <ChevronRight className="h-4 w-4" />
