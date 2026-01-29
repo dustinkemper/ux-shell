@@ -1,8 +1,9 @@
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTabStore } from '@/stores/tabStore'
 import type { Tab } from '@/types'
 import TabItem from './TabItem'
+import TabOverflowMenu from './TabOverflowMenu'
 import { useRef, useState, useEffect } from 'react'
 import {
   DndContext,
@@ -54,10 +55,12 @@ function SortableTabItem({ tab, isActive }: SortableTabItemProps) {
 }
 
 export default function TabsRegion() {
-  const { tabs, activeTabId, openPageTab, reorderTabs } = useTabStore()
+  const { tabs, activeTabId, openPageTab, reorderTabs, setActiveTab } =
+    useTabStore()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(false)
+  const tabRefs = useRef(new Map<string, HTMLDivElement>())
+  const [overflowTabs, setOverflowTabs] = useState<Tab[]>([])
+  const [hasOverflow, setHasOverflow] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -70,43 +73,71 @@ export default function TabsRegion() {
     })
   )
 
-  // Check scroll position and update button visibility
-  const checkScrollPosition = () => {
+  const updateOverflowTabs = () => {
     const container = scrollContainerRef.current
     if (!container) return
 
-    const { scrollLeft, scrollWidth, clientWidth } = container
-    setCanScrollLeft(scrollLeft > 0)
-    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1) // -1 for rounding
+    const { scrollLeft, clientWidth, scrollWidth } = container
+    const isOverflowing = scrollWidth > clientWidth + 1
+    setHasOverflow(isOverflowing)
+    if (!isOverflowing) {
+      setOverflowTabs([])
+      return
+    }
+
+    const epsilon = 1
+    const visibleLeft = scrollLeft - epsilon
+    const visibleRight = scrollLeft + clientWidth + epsilon
+    const nextOverflowTabs = tabs.filter((tab) => {
+      const tabNode = tabRefs.current.get(tab.id)
+      if (!tabNode) return false
+      const tabLeft = tabNode.offsetLeft
+      const tabRight = tabLeft + tabNode.offsetWidth
+      const isFullyVisible =
+        tabLeft >= visibleLeft && tabRight <= visibleRight
+      return !isFullyVisible
+    })
+
+    setOverflowTabs(nextOverflowTabs)
   }
 
-  // Check scroll position on mount and when tabs change
+  // Check overflow on mount and when tabs change
   useEffect(() => {
-    checkScrollPosition()
     const container = scrollContainerRef.current
     if (!container) return
 
-    container.addEventListener('scroll', checkScrollPosition)
-    const resizeObserver = new ResizeObserver(checkScrollPosition)
+    const handleScrollOrResize = () => {
+      requestAnimationFrame(updateOverflowTabs)
+    }
+
+    handleScrollOrResize()
+    container.addEventListener('scroll', handleScrollOrResize, { passive: true })
+    const resizeObserver = new ResizeObserver(handleScrollOrResize)
     resizeObserver.observe(container)
 
     return () => {
-      container.removeEventListener('scroll', checkScrollPosition)
+      container.removeEventListener('scroll', handleScrollOrResize)
       resizeObserver.disconnect()
     }
   }, [tabs])
 
-  const scrollLeft = () => {
+  useEffect(() => {
+    if (!activeTabId || !hasOverflow) return
     const container = scrollContainerRef.current
     if (!container) return
-    container.scrollBy({ left: -200, behavior: 'smooth' })
-  }
+    const tabNode = tabRefs.current.get(activeTabId)
+    if (!tabNode) return
 
-  const scrollRight = () => {
-    const container = scrollContainerRef.current
-    if (!container) return
-    container.scrollBy({ left: 200, behavior: 'smooth' })
-  }
+    const { scrollLeft, clientWidth } = container
+    const tabLeft = tabNode.offsetLeft
+    const tabRight = tabLeft + tabNode.offsetWidth
+    const visibleLeft = scrollLeft
+    const visibleRight = scrollLeft + clientWidth
+
+    if (tabLeft < visibleLeft || tabRight > visibleRight) {
+      tabNode.scrollIntoView({ behavior: 'smooth', inline: 'center' })
+    }
+  }, [activeTabId, hasOverflow, tabs])
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -127,23 +158,14 @@ export default function TabsRegion() {
     openPageTab('asset-type-selector', 'Create New', 'Plus')
   }
 
+  const handleOverflowSelect = (tabId: string) => {
+    setActiveTab(tabId)
+    const tabNode = tabRefs.current.get(tabId)
+    tabNode?.scrollIntoView({ behavior: 'smooth', inline: 'center' })
+  }
+
   return (
     <div className="relative flex flex-1 items-center min-w-0">
-      {/* Left scroll button and gradient */}
-      {canScrollLeft && (
-        <>
-          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#737f85]/40 to-transparent pointer-events-none z-10" />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute left-0 h-11 w-8 rounded-none z-20 bg-[#737f85] text-white shadow-sm hover:bg-[#5f6a6f] hover:text-white"
-            onClick={scrollLeft}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        </>
-      )}
-
       {/* Scrollable container */}
       <div
         ref={scrollContainerRef}
@@ -165,14 +187,25 @@ export default function TabsRegion() {
           >
             <div className="flex items-center min-w-max">
               {tabs.map((tab) => (
-                <SortableTabItem
+                <div
                   key={tab.id}
-                  tab={tab}
-                  isActive={tab.id === activeTabId}
-                />
+                  ref={(node) => {
+                    if (node) {
+                      tabRefs.current.set(tab.id, node)
+                    } else {
+                      tabRefs.current.delete(tab.id)
+                    }
+                  }}
+                  className="flex-shrink-0"
+                >
+                  <SortableTabItem
+                    tab={tab}
+                    isActive={tab.id === activeTabId}
+                  />
+                </div>
               ))}
               {/* New tab button inside scroll - only when no overflow */}
-              {!canScrollRight && (
+              {!hasOverflow && (
                 <div className="flex-shrink-0">
                   <Button
                     variant="ghost"
@@ -189,23 +222,18 @@ export default function TabsRegion() {
         </DndContext>
       </div>
 
-      {/* Right scroll button and gradient - positioned before new tab button when overflow */}
-      {canScrollRight && (
-        <>
-          <div className="absolute right-[44px] top-0 bottom-0 w-8 bg-gradient-to-l from-[#737f85]/40 to-transparent pointer-events-none z-10" />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-[44px] h-11 w-8 rounded-none z-20 bg-[#737f85] text-white shadow-sm hover:bg-[#5f6a6f] hover:text-white"
-            onClick={scrollRight}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </>
+      {/* Overflow menu */}
+      {hasOverflow && (
+        <div className="flex-shrink-0">
+          <TabOverflowMenu
+            overflowTabs={overflowTabs}
+            onSelectTab={handleOverflowSelect}
+          />
+        </div>
       )}
 
       {/* New tab button - outside scroll area when overflow, positioned next to ToolbarGroup */}
-      {canScrollRight && (
+      {hasOverflow && (
         <div className="flex-shrink-0">
           <Button
             variant="ghost"
