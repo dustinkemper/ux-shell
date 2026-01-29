@@ -61,8 +61,6 @@ export default function TabsRegion() {
   const tabRefs = useRef(new Map<string, HTMLDivElement>())
   const [overflowTabs, setOverflowTabs] = useState<Tab[]>([])
   const [hasOverflow, setHasOverflow] = useState(false)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -82,8 +80,6 @@ export default function TabsRegion() {
     const { scrollLeft, clientWidth, scrollWidth } = container
     const isOverflowing = scrollWidth > clientWidth + 1
     setHasOverflow(isOverflowing)
-    setCanScrollLeft(scrollLeft > 1)
-    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1)
     if (!isOverflowing) {
       setOverflowTabs([])
       return

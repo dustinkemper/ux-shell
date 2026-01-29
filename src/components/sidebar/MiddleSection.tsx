@@ -22,13 +22,15 @@ const getIconForType = (type: AssetType, isCollapsed: boolean) => {
 
 export default function MiddleSection() {
   const { state, pinnedItems } = useSidebarStore()
-  const { openTab } = useTabStore()
+  const { openPageTab } = useTabStore()
   const [isExpanded, setIsExpanded] = useState(true)
 
   const isCollapsed = state === 'collapsed'
 
   const handlePinClick = (item: typeof pinnedItems[0]) => {
-    openTab(item)
+    openPageTab('catalog-filtered', `Catalog: ${item.name}`, 'Library', {
+      assetType: item.type,
+    })
   }
 
   return (

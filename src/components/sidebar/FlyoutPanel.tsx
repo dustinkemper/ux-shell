@@ -350,8 +350,20 @@ const toolIconMap: Record<string, LucideIcon> = {
 
 function MenuItem({ item, onItemClick }: MenuItemProps) {
   const { tabs } = useTabStore()
+  const { pinnedItems, pinItem, unpinItem } = useSidebarStore()
+  const isPinned = pinnedItems.some((p) => p.id === item.id)
   const Icon = item.icon ? toolIconMap[item.icon] ?? getAssetIcon(item.type) : getAssetIcon(item.type)
   const isTabOpen = tabs.some((tab) => tab.assetId === item.id)
+
+  const handlePin = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isPinned) {
+      unpinItem(item.id)
+    } else {
+      pinItem(item)
+    }
+  }
+
   return (
     <div
       className="group flex h-8 min-w-0 items-center gap-2 rounded-[4px] px-1 py-1 transition-colors hover:bg-[#e0e5ec] cursor-pointer"
@@ -369,6 +381,23 @@ function MenuItem({ item, onItemClick }: MenuItemProps) {
       <span className="min-w-0 flex-1 inline-flex items-center text-sm leading-4 text-[#18191a] whitespace-nowrap overflow-hidden text-ellipsis">
         {item.name}
       </span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(
+          'h-7 w-7 rounded-[4px] p-1 hover:bg-gray-200/50',
+          isPinned ? 'text-[#18191a] opacity-100' : 'opacity-0 group-hover:opacity-100'
+        )}
+        onClick={handlePin}
+        aria-pressed={isPinned}
+      >
+        <Pin
+          className={cn(
+            'h-4 w-4',
+            isPinned ? 'text-[#18191a] fill-current' : 'text-[#5e656a]'
+          )}
+        />
+      </Button>
     </div>
   )
 }

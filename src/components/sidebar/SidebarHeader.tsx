@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, X, Menu } from 'lucide-react'
+import { PanelLeftClose, ChevronRight, X, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useSidebarStore } from '@/stores/sidebarStore'
 import { cn } from '@/lib/utils'
@@ -36,13 +36,13 @@ export default function SidebarHeader() {
         {isCollapsed ? (
           <ChevronRight className="h-4 w-4" />
         ) : (
-          <ChevronLeft className="h-4 w-4" />
+          <PanelLeftClose className="h-4 w-4" />
         )}
       </Button>
       {!isCollapsed && (
         <>
           <span className="flex flex-1 items-center justify-start text-sm font-medium text-foreground">
-            &lt;Tenant name&gt;
+            Acme Co.
           </span>
           <Button
             variant="ghost"
