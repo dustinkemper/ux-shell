@@ -130,7 +130,7 @@ export default function PipelineDetailPage({
     if (isPinned) {
       unpinItem(pipeline.id)
     } else {
-      pinItem(pipeline)
+      pinItem(pipeline, { pinBehavior: 'asset-tab' })
     }
   }
 

@@ -20,7 +20,7 @@ interface SidebarStore {
   closeFlyout: () => void
   setCatalogFlyoutState: (next: Partial<SidebarStore['catalogFlyoutState']>) => void
   setToolsFlyoutState: (next: Partial<SidebarStore['toolsFlyoutState']>) => void
-  pinItem: (item: Asset) => void
+  pinItem: (item: Asset, options?: { pinBehavior?: Asset['pinBehavior'] }) => void
   unpinItem: (itemId: string) => void
 }
 
@@ -79,12 +79,15 @@ export const useSidebarStore = create<SidebarStore>((set) => ({
     set((state) => ({
       toolsFlyoutState: { ...state.toolsFlyoutState, ...next },
     })),
-  pinItem: (item) =>
+  pinItem: (item, options) =>
     set((state) => {
       if (state.pinnedItems.some((p) => p.id === item.id)) {
         return state
       }
-      const next = [...state.pinnedItems, item]
+      const pinnedItem = options?.pinBehavior
+        ? { ...item, pinBehavior: options.pinBehavior }
+        : item
+      const next = [...state.pinnedItems, pinnedItem]
       savePinnedItems(next)
       return { pinnedItems: next }
     }),

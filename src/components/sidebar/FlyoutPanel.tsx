@@ -200,7 +200,7 @@ function TreeItem({
     if (isPinned) {
       unpinItem(item.id)
     } else {
-      pinItem(item)
+      pinItem(item, { pinBehavior: 'asset-tab' })
     }
   }
 
@@ -360,7 +360,7 @@ function MenuItem({ item, onItemClick }: MenuItemProps) {
     if (isPinned) {
       unpinItem(item.id)
     } else {
-      pinItem(item)
+      pinItem(item, { pinBehavior: 'catalog-filtered' })
     }
   }
 
