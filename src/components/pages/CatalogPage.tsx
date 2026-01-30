@@ -124,7 +124,7 @@ export default function CatalogPage({ filteredType, title }: CatalogPageProps) {
     if (isPinned) {
       unpinItem(asset.id)
     } else {
-      pinItem(asset)
+      pinItem(asset, { pinBehavior: 'asset-tab' })
     }
   }
 

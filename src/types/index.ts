@@ -27,6 +27,7 @@ export interface Asset {
   parentId?: string
   children?: Asset[]
   isPinned?: boolean
+  pinBehavior?: 'asset-tab' | 'catalog-filtered'
   // Extended metadata for different asset types
   connectionMetadata?: ConnectionMetadata
   pipelineMetadata?: PipelineMetadata
